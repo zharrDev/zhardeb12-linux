@@ -84,7 +84,7 @@ Skrip itu akan: menyalin gambar → membuat versi **landscape blur-fill** (gamba
 | Komponen | Default (terinstall) | Alternatif | Catatan |
 |---|---|---|---|
 | Tema GTK | **Catppuccin Mocha** (pastel, ringan, cocok anime) | WhiteSur (glassy macOS) | `THEME=whitesur bash xfce-anime-setup.sh` |
-| Icon pack | **Tela-circle** (vibrant, rounded) | Papirus | `ICONS=papirus bash xfce-anime-setup.sh` |
+| Icon pack | **Papirus** (stabil, tersedia di apt Debian 12) | Tela-circle | `ICONS=tela-circle bash xfce-anime-setup.sh` (bila gagal, otomatis fallback ke Papirus) |
 | Font terminal | JetBrainsMono Nerd Font | FiraCode, CaskaydiaCove | ubah di Preferences terminal |
 | Font UI | Inter | — | via `~/.config/gtk-3.0/settings.ini` |
 

@@ -30,7 +30,7 @@ set -euo pipefail
 
 # ================= Konfigurasi =================
 THEME="${THEME:-catppuccin}"        # catppuccin | whitesur
-ICONS="${ICONS:-tela-circle}"       # tela-circle | papirus
+ICONS="${ICONS:-papirus}"         # tela-circle | papirus (default: papirus, lebih stabil di Debian 12)
 RESOLUTION="${RESOLUTION:-1920x1080}"
 WALL_DIR="$HOME/Pictures/Wallpapers/Anime"
 FONT_DIR="$HOME/.local/share/fonts"
@@ -152,16 +152,23 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
     if [ "$ICONS" = "tela-circle" ]; then
         if [ -d "$ICON_DIR/Tela-circle-dark" ]; then
             msg "Icon pack Tela-circle sudah ada, lewati unduhan."
+            ICON_THEME="Tela-circle-dark"
         else
-            msg "Mengunduh icon pack Tela-circle..."
+            msg "Mengunduh icon pack Tela-circle (jika gagal, akan fallback ke Papirus)..."
             mkdir -p "$ICON_DIR"
-            curl -fL --retry 3 -o /tmp/tela-circle.zip \
+            if curl -fL --retry 2 -o /tmp/tela-circle.zip \
                 https://github.com/vinceliuice/Tela-circle-icon-theme/releases/latest/download/Tela-circle-dark.zip \
-                || die "Gagal mengunduh Tela-circle."
-            unzip -oq /tmp/tela-circle.zip -d "$ICON_DIR" || die "Gagal mengekstrak icon."
+                && unzip -oq /tmp/tela-circle.zip -d "$ICON_DIR" 2>/dev/null && [ -d "$ICON_DIR/Tela-circle-dark" ]; then
+                msg "Tela-circle berhasil diunduh."
+                ICON_THEME="Tela-circle-dark"
+            else
+                warn "Tidak bisa mengunduh Tela-circle (repo GitHub tidak menyediakan asset zip terbaru)."
+                warn "Fallback ke Papirus (via apt)..."
+                apt_install papirus-icon-theme
+                ICON_THEME="Papirus-Dark"
+            fi
             rm -f /tmp/tela-circle.zip
         fi
-        ICON_THEME="Tela-circle-dark"
     elif [ "$ICONS" = "papirus" ]; then
         apt_install papirus-icon-theme
         ICON_THEME="Papirus-Dark"
@@ -175,7 +182,7 @@ else
     else
         GTK_THEME="WhiteSur-dark"; XFWM_THEME="WhiteSur-dark"
     fi
-    [ "$ICONS" = "papirus" ] && ICON_THEME="Papirus-Dark" || ICON_THEME="Tela-circle-dark"
+    [ "$ICONS" = "papirus" ] && ICON_THEME="Papirus-Dark" || ICON_THEME="Tela-circle-dark"  # note: bila Tela-circle gagal di --skip-install, folder Tela-circle-dark belum tentu ada di disk
 fi
 
 # ================= 3. Konfigurasi (picom, terminal, gtk) =================
