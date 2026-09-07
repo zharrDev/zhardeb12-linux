@@ -90,7 +90,7 @@ Skrip itu akan: menyalin gambar → membuat versi **landscape blur-fill** (gamba
 
 **Cara ganti manual (GUI):** *Settings → Appearance* → pilih tema & ikon. Atau lewat baris:
 ```bash
-xfconf-query -c xsettings -p /Gtk/ThemeName -s "Catppuccin-Mocha-Standard-Blue-Dark"
+xfconf-query -c xsettings -p /Gtk/ThemeName -s "catppuccin-mocha-blue-standard+default"
 xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Tela-circle-dark"
 ```
 
@@ -141,5 +141,5 @@ Estimasi beban: **< 2–4% CPU** saat idle di picom, RAM tambahan **± 30–50 M
 ## 🧹 Batal / Uninstall
 
 - Hapus `~/.config/picom`, `~/.config/autostart/picom.desktop`, kembalikan `.bak` yang ada
-- Hapus `~/.themes/Catppuccin-*`, `~/.icons/Tela-circle-*`, font di `~/.local/share/fonts` (bila tak dipakai)
+- Hapus `~/.themes/catppuccin-*`, `~/.icons/Tela-circle-*`, font di `~/.local/share/fonts` (bila tak dipakai)
 - Aktifkan lagi compositor bawaan: `xfconf-query -c xfwm4 -p /general/use_compositing -s true`

@@ -116,18 +116,18 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
 
     # --- Tema GTK: Catppuccin (default, pastel & ringan) ---
     if [ "$THEME" = "catppuccin" ]; then
-        if [ -d "$THEME_DIR/Catppuccin-Mocha-Standard-Blue-Dark" ]; then
+        if [ -d "$THEME_DIR/catppuccin-mocha-blue-standard+default" ]; then
             msg "Tema Catppuccin sudah ada, lewati unduhan."
         else
             msg "Mengunduh tema GTK Catppuccin Mocha..."
             mkdir -p "$THEME_DIR"
             curl -fL --retry 3 -o /tmp/catppuccin-gtk.zip \
-                https://github.com/catppuccin/gtk/releases/latest/download/Catppuccin-Mocha-Standard-Blue-Dark.zip \
+                "https://github.com/catppuccin/gtk/releases/latest/download/catppuccin-mocha-blue-standard%2Bdefault.zip" \
                 || die "Gagal mengunduh tema Catppuccin."
             unzip -oq /tmp/catppuccin-gtk.zip -d "$THEME_DIR" || die "Gagal mengekstrak tema."
             rm -f /tmp/catppuccin-gtk.zip
         fi
-        GTK_THEME="Catppuccin-Mocha-Standard-Blue-Dark"
+        GTK_THEME="catppuccin-mocha-blue-standard+default"
         XFWM_THEME="$GTK_THEME"
 
     # --- Tema GTK: WhiteSur (alternatif, glassy macOS-like) ---
@@ -171,7 +171,7 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
 else
     # Mode --skip-install: tetap butuh nama tema untuk diterapkan
     if [ "$THEME" = "catppuccin" ]; then
-        GTK_THEME="Catppuccin-Mocha-Standard-Blue-Dark"; XFWM_THEME="$GTK_THEME"
+        GTK_THEME="catppuccin-mocha-blue-standard+default"; XFWM_THEME="$GTK_THEME"
     else
         GTK_THEME="WhiteSur-dark"; XFWM_THEME="WhiteSur-dark"
     fi
