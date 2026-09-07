@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Panel Xfce floating (mengambang) di tengah atas, semi-transparan.
+  Menampilkan: showdesktop, aplikasi menu, tasklist, systray (iklan/battery/etc),
+  clock, dan actions (lock/logout). Warna & transparansi diatur oleh picom + pywal.
   Dipasang oleh xfce-anime-setup.sh dengan opsi apply-panel (backup otomatis dibuat).
-  Catatan: bila posisi belum pas, buka kunci panel (klik kanan lalu Unlock Panel)
-  lalu geser panel ke posisi yang diinginkan.
+  Catatan: panel floating, jadi bisa digerakkan. Bila ingin tetap di tengah,
+  klik kanan -> Unlock Panel, geser ke posisi yang diinginkan lalu kunci lagi.
 -->
 <channel name="xfce4-panel" version="1.0">
 <property name="configver" type="int" value="2"/>
@@ -14,7 +16,7 @@
 <property name="position" type="string" value="p=11;x=0;y=0"/>
 <property name="length" type="uint" value="520"/>
 <property name="length-adjust" type="bool" value="false"/>
-<property name="position-locked" type="bool" value="true"/>
+<property name="position-locked" type="bool" value="false"/>
 <property name="icon-size" type="uint" value="18"/>
 <property name="size" type="uint" value="42"/>
 <property name="autohide-behavior" type="uint" value="0"/>
@@ -23,7 +25,7 @@
 <value type="double" value="0.117647"/>
 <value type="double" value="0.117647"/>
 <value type="double" value="0.180392"/>
-<value type="double" value="0.72"/>
+<value type="double" value="0.82"/>
 </property>
 <property name="plugin-ids" type="array">
 <value type="int" value="1"/>
@@ -35,24 +37,24 @@
 <value type="int" value="7"/>
 <value type="int" value="8"/>
 <value type="int" value="9"/>
+<value type="int" value="10"/>
 </property>
 </property>
 </property>
 <property name="plugins" type="empty">
-<property name="plugin-1" type="string" value="applicationsmenu"/>
-<property name="plugin-2" type="string" value="separator"/>
-<property name="plugin-3" type="string" value="tasklist">
+<property name="plugin-1" type="string" value="showdesktop"/>
+<property name="plugin-2" type="string" value="applicationsmenu"/>
+<property name="plugin-3" type="string" value="separator"/>
+<property name="plugin-4" type="string" value="tasklist">
 <property name="grouping" type="uint" value="1"/>
 </property>
-<property name="plugin-4" type="string" value="separator">
-<property name="expand" type="bool" value="true"/>
-</property>
-<property name="plugin-5" type="string" value="systray">
+<property name="plugin-5" type="string" value="separator"/>
+<property name="plugin-6" type="string" value="systray">
 <property name="square-icons" type="bool" value="true"/>
 </property>
-<property name="plugin-6" type="string" value="separator"/>
-<property name="plugin-7" type="string" value="clock"/>
-<property name="plugin-8" type="string" value="separator"/>
-<property name="plugin-9" type="string" value="actions"/>
+<property name="plugin-7" type="string" value="separator"/>
+<property name="plugin-8" type="string" value="clock"/>
+<property name="plugin-9" type="string" value="separator"/>
+<property name="plugin-10" type="string" value="actions"/>
 </property>
 </channel>

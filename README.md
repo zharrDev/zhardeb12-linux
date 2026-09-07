@@ -1,88 +1,80 @@
-# ✨ Anime Glassmorphism — Xfce (Debian 12)
+# 🎐 Setup Desktop Xfce Anime — Glassmorphism & Vibrant Aesthetic (Debian 12)
 
-Setup otomatis agar Desktop Environment Xfce tampil **glassmorphism ala anime**:
-transparan + blur tipis, sudut membulat, warna pastel, terminal senada —
-**tetap ringan (RAM & CPU rendah)**.
+Mirror proyek ini: **/home/suo/Documents/zhardeb**
 
----
-
-## 📦 Isi Paket
-
-| File | Fungsi |
-|---|---|
-| `xfce-anime-setup.sh` | Skrip utama: install & konfigurasi semua |
-| `update-wallpaper.sh` | Tautkan wallpaper anime baru + warna otomatis (pywal) |
-| `wallpapers/anime-1920x1080.jpg` | Wallpaper utama dari asetmu, sudah **landscape** (blur-fill) |
-| `wallpapers/anime-*-1920x1080.jpg` | Versi landscape gambar anime lain di `asset/` |
-| `config/picom/picom.conf` | Compositor: rounded corners, blur tipis, transparansi hemat daya |
-| `config/xfce4/terminal/terminalrc` | xfce4-terminal: palette pastel anime + semi-transparan + Nerd Font |
-| `config/xfce4/.../xfce4-panel.xml` | Panel floating (tengah-atas) semi-transparan |
-| `config/gtk-3.0/settings.ini` | Fallback tema/ikon/font untuk aplikasi GTK |
-| `config/kitty/kitty.conf` | Opsional bila memakai kitty |
+Skrip + konfigurasi untuk **mempercantik tampilan Xfce** di Debian 12 dengan gaya
+transparansi/blur (glassmorphism) yang elegan, ringan di RAM/CPU, dan warna UI
+yang menyesuaikan wallpaper anime secara otomatis.
 
 ---
 
-## 🚀 Cara Pakai (3 Langkah)
+## 📦 Gambar yang tersedia
 
-### Langkah 1 — Jalankan skrip instalasi
-```bash
-cd /lokasi/folder-ini
-bash xfce-anime-setup.sh
-```
-Skrip otomatis:
-- `apt install` → picom, xfce4-terminal, imagemagick, unzip, curl, fonts Inter & emoji
-- Unduh **JetBrainsMono Nerd Font** → `~/.local/share/fonts`
-- Unduh **tema GTK Catppuccin Mocha** → `~/.themes` dan **ikon Tela-circle** → `~/.icons`
-- Salin semua konfigurasi ke `~/.config/` (yang lama di-backup `.bak`)
-- Salin wallpaper ke `~/Pictures/Wallpapers/Anime/` + buat versi landscape + set sebagai wallpaper
-- Matikan compositor bawaan xfwm4, aktifkan **picom** (autostart dibuat)
+Semua gambar anime ada di `asset/`:
 
-**Opsi tambahan:**
-```bash
-bash xfce-anime-setup.sh --apply-panel   # + panel floating tengah-atas (backup otomatis)
-bash xfce-anime-setup.sh --pywal         # + install pywal16 (warna ikut wallpaper)
-bash xfce-anime-setup.sh --kitty         # + pasang & konfigurasi kitty
-THEME=whitesur bash xfce-anime-setup.sh  # pakai WhiteSur (alternatif glassy macOS)
-RESOLUTION=2560x1440 bash xfce-anime-setup.sh  # wallpaper buat layar 2K
-```
+| File | Keterangan |
+| --- | --- |
+| `916764067907298333.jpeg` | **Hero / default wallpaper** (portrait 672×1195) |
+| `968133251138558907.jpeg` | Anime lain |
+| `1147432811330550518.jpeg` | Anime lain |
+| `影.jpeg` | Anime lain |
 
-### Langkah 2 — Restart sesi
-Logout → login kembali (atau restart X). Tema, ikon, dan font baru terlihat penuh.
-
-### Langkah 3 — Cek compositor
-```bash
-pgrep -x picom          # harus ada output PID
-```
-Kalau blur/transparansi belum muncul, cek troubleshooting di bawah.
+Skrip otomatis membuat versi **landscape 1920×1080** dari tiap gambar dengan
+teknik *blur-fill* (gambar tetap utuh di tengah, sisi kiri/kanan diisi blur).
+Hasilnya ada di `~/Pictures/Wallpapers/Anime/anime-1920x1080.jpg` (dan seterusnya
+untuk resolusi lain).
 
 ---
 
-## 🖼️ Menautkan Wallpaper Anime Baru (yang kamu unggah)
+## 🚀 Cara pakai (3 langkah)
 
-Semua wallpaper ditaruh di **`~/Pictures/Wallpapers/Anime/`** (dibuat otomatis).
+### 1. Jalankan installer
 
-1. Saat instalasi, **semua gambar di folder `asset/` proyek ini** otomatis disalin ke sana, dan `916764067907298333.jpeg` dijadikan wallpaper default. Taruh gambar anime baru ke folder itu, lalu:
+Dari folder proyek:
 ```bash
-./update-wallpaper.sh ~/Pictures/Wallpapers/Anime/nama-gambar.jpg
+cd /home/suo/Documents/zhardeb
+bash xfce-anime-setup.sh --apply-panel --pywal
 ```
-Skrip itu akan: menyalin gambar → membuat versi **landscape blur-fill** (gambar utuh di tengah, sisi kiri/kanan di-blur senada) → set sebagai wallpaper desktop → bila pywal terpasang, **warna seluruh UI ikut berubah otomatis** mengikuti warna dominan wallpaper:
 
-- **Terminal** — palette 16 warna (xfce4-terminal / kitty)
-- **Panel Xfce** — latar panel diambil dari warna dasar wallpaper (semi-transparan)
-- **Aplikasi GTK** — `gtk.css` (latar, teks, seleksi, border, tooltip)
-- **Teks ikon di desktop** — warna mengikuti foreground wallpaper
+Arti opsi:
+| Opsi | Keterangan |
+| --- | --- |
+| (tanpa opsi) | Instal paket + konfigurasi + wallpaper |
+| `--apply-panel` | Panel Xfce floating atas, semi-transparan (override konfigurasi panel) |
+| `--pywal` | Pasang pywal + terapkan warna UI mengikuti wallpaper saat setup |
+| `RESOLUTION=2560x1440` | Ubah resolusi wallpaper landscape (default 1920x1080) |
+| `THEME=whitesur` | Ganti tema GTK jadi WhiteSur (default: Catppuccin Mocha) |
+| `ICONS=tela-circle` | Paksa Tela-circle (bila gagal otomatis fallback ke Papirus) |
 
-> Mau warna terminal selalu nyala wal manual?
-> ```bash
-> wal -i ~/Pictures/Wallpapers/Anime/nama-gambar.jpg
-> ```
+Skrip bersifat **idempotent** — jika dijalankan lagi, yang sudah selesai akan
+ dilewati (paket, font, konfigurasi yang diberi backup `.bak`).
+
+### 2. Logout → login kembali (atau restart X)
+
+Agar tema, ikon, font, dan compositor picom diterapkan penuh.
+
+### 3. Ganti wallpaper kapan saja
+
+Pasang wallpaper anime baru:
+```bash
+./update-wallpaper.sh /path/ke/gambar-anime.jpg             # 1920x1080
+./update-wallpaper.sh /path/ke/gambar-anime.jpg 2560x1440  # resolusi kustom
+```
+Skrip akan:
+1. Salin gambar ke `~/Pictures/Wallpapers/Anime/`
+2. Buat versi landscape (blur-fill)
+3. Set sebagai wallpaper desktop
+4. **Jalankan pywal** → warna seluruh UI ikut berubah:
+   - warna panel, GTK, teks ikon desktop
+   - palette terminal baru
+5. Restart panel + kirim warna ke kitty (bila terpasang)
 
 ---
 
 ## 🎨 Rekomendasi Tema & Cara Menggantinya
 
 | Komponen | Default (terinstall) | Alternatif | Catatan |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Tema GTK | **Catppuccin Mocha** (pastel, ringan, cocok anime) | WhiteSur (glassy macOS) | `THEME=whitesur bash xfce-anime-setup.sh` |
 | Icon pack | **Papirus** (stabil, tersedia di apt Debian 12) | Tela-circle | `ICONS=tela-circle bash xfce-anime-setup.sh` (bila gagal, otomatis fallback ke Papirus) |
 | Font terminal | JetBrainsMono Nerd Font | FiraCode, CaskaydiaCove | ubah di Preferences terminal |
@@ -91,55 +83,186 @@ Skrip itu akan: menyalin gambar → membuat versi **landscape blur-fill** (gamba
 **Cara ganti manual (GUI):** *Settings → Appearance* → pilih tema & ikon. Atau lewat baris:
 ```bash
 xfconf-query -c xsettings -p /Gtk/ThemeName -s "catppuccin-mocha-blue-standard+default"
-xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Tela-circle-dark"
+xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 ```
 
 ---
 
-## 🧊 Panel Floating (jika belum pakai `--apply-panel`)
+## 🖥 Panel Floating (atas, horizontal, transparan + blur)
 
-Cara manual (2 menit, tanpa risiko):
-1. Klik kanan panel → **Panel → Panel Preferences**
-2. Buka **Display** → lepas centang *"Lock panel"*
-3. Geser panel ke **tengah atas** layar (otomatis mengambang)
-4. Tab **Appearance** → *"Background"* pilih **None** (transparan penuh) atau *"Solid color"* lalu atur opacity ~70% dengan warna gelap ungu
-5. Klik kanan → **Lock panel** lagi
+Panel di-setup oleh `xfce-anime-setup.sh --apply-panel` menjadi:
+- **Posisi**: floating (mengambang) di tengah atas (`p=11;x=0;y=0`).
+  Panel **bisa digerakkan**: klik kanan → *Unlock Panel*, lalu klik & drag ke
+  posisi yang diinginkan, klik kanan → *Lock Panel* lagi bila sudah pas.
+- **Plugin yang tampil**: Show Desktop → Aplikasi Menu → Tasklist (jendela) →
+  separator → Systray (ikon sistem, battery/clock/icon lainnya yang terpasang)
+  → separator → Clock → separator → Actions (lock screen, logout, dll).
+- **Warna**: semi-transparan (RGBA `rgba(bg, 0.82)`), warna latar diupdate
+  otomatis oleh pywal mengikuti warna dominan wallpaper.
+- **Blur & transparansi**: ditangani picom (lihat `picom.conf`).
 
-Atau otomatis (backup dibuat):
+### Menambah Battery / CPU / Monitor ke panel (opsional)
+
+Plugin **hardware sensors** dan **system load monitor** sudah terpasang di sistem
+tetapi tidak dimasukkan di panel XML (karena properti masing-masing bersifat
+spesifik). Tambahkan manual lewat GUI:
+
+1. Klik kanan panel → **Panel Preferences** → tab **Add** (atau *Add/Remove*).
+2. Pilih **Sensors** → tambahkan.
+3. Pilih **System Load Monitor** → tambahkan.
+4. Atur posisi plugin baru di panel (klik & drag).
+
+⚠️ Jika tidak muncul di daftar *Add*, pastikan paket sudah terpasang:
 ```bash
-bash xfce-anime-setup.sh --apply-panel
+sudo apt install xfce4-sensors-plugin xfce4-systemload-plugin
+xfce4-panel --restart
 ```
 
 ---
 
-## ⚡ Kenapa Tetap Ringan?
+## ⌨ Terminal — transparan, blur, palette anime
 
-- **Blur tipis** (`blur-strength = 4`, metode `dual_kawase`) — jauh lebih hemat dari gaussian besar
-- **Tanpa animasi berat** picom; shadow kecil; `unredir-if-possible` = fullscreen tanpa compositing
-- **Tema Catppuccin** = warna polos, tanpa tekstur/efek berat
-- Terminal semi-transparan = hanya alpha blending (GPU ringan), bukan transparansi berlapis
-- Panel memakai alpha solid 0.72 — tidak ada blur berjalan di panel
+`xfce4-terminal` diset via `config/xfce4/terminal/terminalrc`:
+- **Transparan** (`BackgroundMode=TRANSPARENT`, `BackgroundDarkness=0.82`).
+- **Blur** di belakang terminal ditangani picom (`blur-method=dual_kawase`,
+  `blur-strength=4`).
+- **Palette pastel anime** (Catppuccin Mocha).
+- Font: JetBrainsMono Nerd Font 11.
 
-Estimasi beban: **< 2–4% CPU** saat idle di picom, RAM tambahan **± 30–50 MB**.
+Hasil: terminal pertama kali dibuka terlihat **elegandengan wallpaper anime
+terlihat di baliknya** (glassmorphism).
+
+### Terminal “mulai dengan wallpaper sebagai background image” (opsional)
+
+Secara bawaan terminal diset **transparan** (lebih ringan & elegan). Jika kamu
+ingin terminal muncul dengan gambar wallpaper sebagai background image (bukan
+transparan), atur manual lewat GUI:
+
+1. Buka terminal → **Edit → Preferences**.
+2. Tab **Appearance** (atau **General**).
+3. **Background** → pilih **Solid** / **Image**, atur gambar wallpaper atau
+   transparansi.
+
+*Nota:* skrip/config ini tidak dapat memaksa background image via file
+`terminalrc` — hanya bisa melalui GUI preferences terminal.
+
+### Tombol window (close / minimize / maximize) di terminal
+
+Di xfce4-terminal versi yang ada di sini (apt 1.0.4-1), tombol **window
+decorations** (close/min/max/title) **tidak bisa diatur lewat file konfigurasi**
+atau baris perintah — hanya lewat GUI:
+
+1. Tampilkan terminal.
+2. **Edit → Preferences → Appearance** (atau *Misc*).
+3. Aktifkan **Window buttons** / **Show window decorations** (tergantung versi).
+
+Bila ingin terminal tanpa judul tapi tetap ada tombol close/min/max di pojok,
+atur “Window decorations” yang tersedia di menu preferences.
 
 ---
 
-## 🔧 Troubleshooting
+## 🧩 Kitty (opsional)
 
-| Masalah | Solusi |
-|---|---|
-| Picom tidak jalan | `picom --daemon` di terminal, lihat error. Di mesin tanpa GPU: ganti `backend = "glx"` → `"xrender"` di `~/.config/picom/picom.conf` |
-| Sudut tidak membulat | Pastikan picom ≥ 10.1 (`picom --version`). Hapus baris `corner-radius` bila pakai versi lama |
-| Terminal tidak blur | Cek `blur-background = true` aktif & picom berjalan; blur hanya muncul di belakang jendela **transparan** |
-| Transparansi terminal tidak jalan | Preferences terminal → *Appearance* → centang "Use transparent background" |
-| Panel hilang setelah `--apply-panel` | `cp ~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml.bak ~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml` lalu `xfce4-panel --restart` |
-| Warna terminal tidak berubah setelah pywal | Jalankan ulang `./update-wallpaper.sh ...` atau buka terminal baru |
-| `wal` tidak ditemukan | `export PATH="$HOME/.local/bin:$PATH"` (sudah ditambahkan ke `.bashrc` oleh skrip) |
+Kalau kamu lebih suka Kitty, skrip bisa menginstallnya dengan `WITH_KITTY=1`:
+```bash
+WITH_KITTY=1 bash xfce-anime-setup.sh
+```
+Konfigurasi ada di `config/kitty/kitty.conf`. Warna otomatis dari pywal
+ditautkan via include `~/.cache/wal/colors-kitty.conf` setelah pertama kali
+`update-wallpaper.sh` dijalankan.
+
+---
+
+## ⚙️ Compositor & performa
+
+- **Compositor bawaan xfwm4** dimatikan, diganti **Picom** (melalui autostart
+  `picom.desktop`).
+- Picom dikonfigurasikan di `config/picom/picom.conf`:
+  - Rounded corners 12px (ringan, exclude maximized/fullscreen).
+  - Shadow halus (opacity 0.22, radius 10).
+  - Transparansi jendela tidak aktif 0.94.
+  - Blur tipis `dual_kawase`, strength 4 (hemat GPU).
+  - `unredir-if-possible = true` (fullscreen & idle → matikan compositing,
+    hemat daya).
+
+Estimasi beban: ~30–50 MB RAM, 2–4% CPU (tergantung GPU). Jika merasa berat,
+kurangi `blur-strength` jadi 2 atau matikan blur sama sekali.
+
+---
+
+## 🌈 Warna otomatis mengikuti wallpaper (pywal)
+
+Setelah pywal terpasang (opsi `--pywal` di installer, atau install manual
+`pip install --user pywal16`), warna UI diupdate otomatis tiap kamu menjalankan
+`update-wallpaper.sh`:
+
+| Komponen | Cara update warna |
+| --- | --- |
+| **Panel Xfce** | Laten panel diupdate lewat file `xfce4-panel.xml`, warna dari `color0` wallpaper |
+| **Aplikasi GTK** | `gtk.css` ditulis ulang (bg, fg, seleksi, border, tooltip, warna widget) |
+| **Terminal xfce4-terminal** | Palette 16 warna + foreground/background/cursor di-update di `terminalrc` |
+| **Kitty** | Di-include `colors-kitty.conf` hasil pywal (jika ada) |
+| **Teks ikon desktop** | Font color diset sesuai foreground wallpaper |
+
+Cara manual bila pywal sudah terpasang tapi warna tidak berubah:
+```bash
+./update-wallpaper.sh ~/Pictures/Wallpapers/Anime/nama-gambar.jpg
+```
+atau buka terminal baru (pywal ter-trigger saat terminal baru dibuka, tergantung
+konfigurasi shell `.bashrc`/`.zshrc` yang menautkan `wal`).
 
 ---
 
 ## 🧹 Batal / Uninstall
 
-- Hapus `~/.config/picom`, `~/.config/autostart/picom.desktop`, kembalikan `.bak` yang ada
-- Hapus `~/.themes/catppuccin-*`, `~/.icons/Tela-circle-*`, font di `~/.local/share/fonts` (bila tak dipakai)
-- Aktifkan lagi compositor bawaan: `xfconf-query -c xfwm4 -p /general/use_compositing -s true`
+- Hapus `~/.config/picom`, `~/.config/autostart/picom.desktop`, kembalikan `.bak`
+  yang ada (misal `panel.xml.bak`, `terminalrc.bak`).
+- Hapus `~/.themes/catppuccin-*`, `~/.icons/Tela-circle-*`, font di
+  `~/.local/share/fonts` (bila tak dipakai).
+- Kembalikan compositor bawaan: `xfconf-query -c xfwm4 -p /general/use_compositing -s true`.
+- Uninstall pywal: `pip uninstall pywal16` (atau `pywal`).
+
+---
+
+## 📂 Struktur berkas
+
+```
+/home/suo/Documents/zhardeb/
+├── xfce-anime-setup.sh        # installer utama (1-klik)
+├── update-wallpaper.sh        # ganti wallpaper + warna UI otomatis
+├── README.md                  # panduan ini
+├── config/
+│   ├── picom/picom.conf       # konfigurasi glassmorphism ringan
+│   ├── xfce4/terminal/terminalrc
+│   ├── xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+│   ├── gtk-3.0/settings.ini
+│   ├── gtk-3.0/gtk.css        # override warna (ditulis ulang pywal)
+│   └── kitty/kitty.conf
+└── asset/                     # gambar anime asli (user upload)
+```
+
+---
+
+## 🐛 Troubleshooting
+
+- **Picom tidak berjalan**: cek driver GPU (glx/egl). Coba ganti backend di
+  `picom.conf` jadi `backend = "egl";` atau `backend = "xrender";`.
+- **Panel tidak muncul / error**: restore dari `panel.xml.bak`, lalu
+  `xfce4-panel --restart`.
+- **Warna terminal tidak berubah setelah pywal**: jalankan ulang
+  `./update-wallpaper.sh /path/gambar.jpg` atau buka terminal baru.
+- **Tema Catppuccin / icon tidak apply**: logout → login, atau jalankan ulang
+  `xfce-anime-setup.sh --skip-install` (set xsettings & xfwm theme).
+- **Terminal transparan tapi tidak blur**: pastikan picom berjalan & `blur-background = true` di `picom.conf`.
+- **Gambar wallpaper terlalu kecil/retak**: edit resolusi di `RESOLUTION=...`
+  atau `update-wallpaper.sh ... 2560x1440` sesuai ukuran layar.
+
+---
+
+## 📌 Catatan release
+
+- Tema GTK Catppuccin: URL download menggunakan asset
+  `catppuccin-mocha-blue-standard+default.zip` (v1.0.3+), bukan nama lama.
+- Icon pack Tela-circle: repo ini tidak lagi menyediakan `Tela-circle-dark.zip`
+  di release terbaru, jadi default otomatis ke Papirus dan `ICONS=tela-circle`
+  akan fallback ke Papirus bila unduhan gagal.
