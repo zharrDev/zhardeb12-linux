@@ -1,103 +1,111 @@
 #!/usr/bin/env bash
 #
-# xfce-anime-setup.sh
-# ------------------------------------------------------------
-# Setup otomatis Desktop Environment Xfce (Debian 12) dengan
-# estetika "Anime Glassmorphism / Vibrant Aesthetic".
-#
-# Fitur:
-#   - Install Picom (compositor) + konfigurasi glassmorphism ringan
-#   - Install Nerd Font (JetBrainsMono Nerd Font)
-#   - Install tema GTK (Catppuccin Mocha / WhiteSur) + Icon pack (Tela-circle / Papirus)
-#   - Konfigurasi xfce4-terminal: palette pastel anime, background semi-transparan
-#   - Panel Xfce floating & semi-transparan (opsional, --apply-panel)
-#   - Wallpaper anime landscape (blur-fill) dari asset proyek ini
-#   - Pywal untuk warna otomatis mengikuti wallpaper (opsional, --pywal)
+# xfce-anime-setup.sh — Installer Xfce Anime Glassmorphism (Debian 12)
+# -----------------------------------------------------------------
+# Ringkasan:
+#   - Install picom (glassmorphism ringan)
+#   - Install Nerd Font (JetBrainsMono)
+#   - Install tema GTK (Catppuccin Mocha) + Icon pack (Tela-circle/Papirus)
+#   - Pasang konfigurasi (picom, terminal, gtk, kitty bila perlu)
+#   - Setup wallpaper anime (portrait -> landscape 1920x1080 blur-fill)
+#   - Matikan compositor bawaan xfwm4, aktifkan picom + autostart
+#   - Opsional: panel floating (`--apply-panel`), pywal (`--pywal`, `--skip-install`)
 #
 # Cara pakai:
-#   bash xfce-anime-setup.sh                 # install + terapkan konfigurasi
-#   bash xfce-anime-setup.sh --apply-panel   # + ganti layout panel jadi floating
-#   bash xfce-anime-setup.sh --pywal         # + install pywal16 (warna ikut wallpaper)
-#   bash xfce-anime-setup.sh --kitty         # + konfigurasi kitty (bukan xfce4-terminal)
+#   bash xfce-anime-setup.sh                        # instal + konfigurasi
+#   bash xfce-anime-setup.sh --apply-panel          # + panel floating
+#   bash xfce-anime-setup.sh --pywal                # + pywal warna otomatis
+#   bash xfce-anime-setup.sh --apply-panel --pywal # semua opsi
+#   bash xfce-anime-setup.sh --skip-install         # hanya konfigurasi (tanpa apt/git/curl)
+#   RESOLUTION=2560x1440 bash xfce-anime-setup.sh   # resolusi kustom
+#   THEME=whitesur bash xfce-anime-setup.sh         # tema alternatif
+#   ICONS=papirus bash xfce-anime-setup.sh          # icon alternatif
 #
-# Variabel lingkungan yang bisa diubah:
-#   THEME=whitesur ICONS=papirus RESOLUTION=2560x1440 bash xfce-anime-setup.sh
-#
-# Aman & idempotent: semua berkas yang sudah ada di-backup dulu (.bak),
-# tidak menghapus apa pun, hanya menambah/mengganti konfigurasi milik sendiri.
-# ------------------------------------------------------------
+# Prinsip: aman (idempotent), backup otomatis (.bak), ringan.
+# -----------------------------------------------------------------
+
 set -euo pipefail
 
-# ================= Konfigurasi =================
-THEME="${THEME:-catppuccin}"        # catppuccin | whitesur
-ICONS="${ICONS:-papirus}"         # tela-circle | papirus (default: papirus, lebih stabil di Debian 12)
-RESOLUTION="${RESOLUTION:-1920x1080}"
-WALL_DIR="$HOME/Pictures/Wallpapers/Anime"
-FONT_DIR="$HOME/.local/share/fonts"
+SRC_DIR="$(cd "$(dirname "$0")" && pwd)"   # direktori skrip ini
+CFG_DIR="$HOME/.config"
 THEME_DIR="$HOME/.themes"
 ICON_DIR="$HOME/.icons"
-CFG_DIR="$HOME/.config"
-AUTOSTART_DIR="$CFG_DIR/autostart"
-SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FONT_DIR="$HOME/.local/share/fonts"
+WALL_DIR="$HOME/Pictures/Wallpapers/Anime"
+AUTOSTART_DIR="$HOME/.config/autostart"
 
-# Flag CLI
-APPLY_PANEL=0
+RESOLUTION="${RESOLUTION:-1920x1080}"
+THEME="${THEME:-catppuccin}"         # catppuccin | whitesur
+ICONS="${ICONS:-papirus}"           # tela-circle | papirus (default: papirus, lebih stabil di Debian 12)
 WITH_KITTY=0
 WITH_PYWAL=0
+APPLY_PANEL=0
 SKIP_INSTALL=0
+
+usage() {
+    sed -n '3,15p' "$0" | sed 's/^# //; s/^#//'
+    echo
+    echo "Opsi:"
+    echo "  --apply-panel   Panel floating (semi-transparan) di tengah atas"
+    echo "  --pywal         Pasang + aktifkan pywal (warna UI mengikuti wallpaper)"
+    echo "  --skip-install  Mode konfigurasi saja (skip apt/git/curl/download)"
+    echo "  -h | --help     Bantuan"
+    echo
+    echo "Variabel lingkungan:"
+    echo "  RESOLUTION=2560x1440   Resolusi wallpaper landscape (default: 1920x1080)"
+    echo "  THEME=whitesur         Tema GTK alternatif (default: catppuccin)"
+    echo "  ICONS=papirus          Icon pack (default: papirus)"
+    echo "  WITH_KITTY=1           Install + konfigurasi kitty terminal"
+    exit 0
+}
+
+die()  { printf '\033[1;31m[gagal]\033[0m %s\n' "$*" >&2; exit 1; }
+warn() { printf '\033[1;33m[peringatan]\033[0m %s\n' "$*"; }
+msg()  { printf '\033[1;36m[setup]\033[0m %s\n' "$*"; }
+
+# Opsi baris perintah
 for arg in "$@"; do
     case "$arg" in
+        -h|--help) usage ;;
         --apply-panel) APPLY_PANEL=1 ;;
-        --kitty)       WITH_KITTY=1 ;;
-        --pywal)       WITH_PYWAL=1 ;;
+        --pywal)      WITH_PYWAL=1 ;;
         --skip-install) SKIP_INSTALL=1 ;;
-        *) echo "Opsi tidak dikenal: $arg" >&2; exit 1 ;;
+        *) die "Opsi tidak dikenal: $arg (coba -h)" ;;
     esac
 done
 
-# ================= Helper =================
-msg()  { printf '\033[1;36m[setup]\033[0m %s\n' "$*"; }
-warn() { printf '\033[1;33m[peringatan]\033[0m %s\n' "$*"; }
-die()  { printf '\033[1;31m[gagal]\033[0m %s\n' "$*" >&2; exit 1; }
+# ================= 1. Helper =================
+install_file() { mkdir -p "$(dirname "$2")" && cp -f "$1" "$2"; }
 
-need_cmd() { command -v "$1" >/dev/null 2>&1 || die "Perintah '$1' tidak ditemukan. Jalankan ulang tanpa --skip-install."; }
+set_xfconf() {
+    local channel="$1" path="$2" type="$3" val="$4"
+    xfconf-query -c "$channel" -p "$path" -t "$type" -s "$val" 2>/dev/null || true
+}
 
 apt_install() {
-    local pkgs=("$@")
-    sudo apt-get update -y
-    sudo apt-get install -y "${pkgs[@]}"
-}
-
-# Backup lalu salin berkas, buat direktori induk bila perlu.
-install_file() {  # <sumber> <tujuan>
-    local src="$1" dst="$2"
-    mkdir -p "$(dirname "$dst")"
-    if [ -e "$dst" ] && [ ! -e "$dst.bak" ]; then
-        cp -a "$dst" "$dst.bak"
-        msg "Backup konfigurasi lama -> $dst.bak"
+    if ! dpkg -l "$1" 2>/dev/null | grep -q "^ii"; then
+        msg "Memasang paket: $1..."
+        sudo apt-get install -y "$1" || die "Gagal memasang $1 (jalankan: sudo apt install $1)."
+    else
+        msg "Paket $1 sudah terpasang."
     fi
-    cp -f "$src" "$dst"
-    msg "Pasang konfigurasi -> $dst"
 }
 
-set_xfconf() {  # <channel> <properti> <type> <nilai>
-    local chan="$1" prop="$2" type="$3" val="$4"
-    xfconf-query -c "$chan" -p "$prop" -s "$val" --create -t "$type" 2>/dev/null \
-        || xfconf-query -c "$chan" -p "$prop" -s "$val" -t "$type" 2>/dev/null \
-        || warn "Gagal set $chan:$prop (abaikan)"
-}
+# Tentukan nama paket picom di repo
+PICOM_PKG="picom"
+if ! apt-cache show "$PICOM_PKG" >/dev/null 2>&1; then
+    PICOM_PKG="picom"   # fallback nama standar
+fi
 
-# ================= 1. Cek sistem =================
-[ -f /etc/debian_version ] || die "Skrip ini untuk Debian (atau turunan Debian)."
-command -v sudo >/dev/null 2>&1 || die "sudo diperlukan."
-need_cmd xfconf-query
-
-# ================= 2. Install paket =================
+# ================= 2. Install paket & asset (skip bila --skip-install) =================
 if [ "$SKIP_INSTALL" -eq 0 ]; then
-    msg "Menginstall paket pendukung (picom, terminal, font, tooling)..."
-    apt_install picom xfce4-terminal imagemagick unzip curl \
-        fonts-inter fonts-noto-color-emoji \
-        xsettingsd xfce4-settings python3-pip
+    msg "Memasang dependensi..."
+    apt_install xfce4-terminal xfce4-settings xfconf xfwm4 xfce4-panel xfce4-panel-plugin XRDesktop \
+        picom git curl unzip fonts-inter fonts-cantarell xdg-utils xdg-user-dirs \
+        python3-pip xdg-utils xfce4-settings xfce4-appfinder
+
+    # --- Compositor: picom (lebih ringan dari xfwm4 paint) ---
+    apt_install "$PICOM_PKG"
 
     # --- Nerd Font: JetBrainsMono ---
     if fc-list 2>/dev/null | grep -qi "JetBrainsMono Nerd Font"; then
@@ -148,7 +156,7 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
         die "THEME tidak dikenal: $THEME (pilihan: catppuccin | whitesur)"
     fi
 
-    # --- Icon pack ---
+    # --- Icon pack --- (catatan terbaru: Tela-circle tidak lagi menyediakan zip di release, jadi default ke Papirus)
     if [ "$ICONS" = "tela-circle" ]; then
         if [ -d "$ICON_DIR/Tela-circle-dark" ]; then
             msg "Icon pack Tela-circle sudah ada, lewati unduhan."
@@ -257,6 +265,17 @@ set_xfconf xsettings /Net/ThemeName    string "$GTK_THEME"
 set_xfconf xfwm4 /general/theme        string "$XFWM_THEME"
 set_xfconf xfwm4 /general/title_font   string "Inter Bold 9"
 
+# Window button layout: tombol (maximize, minimize, close) di kanan titlebar
+# Format button_layout: [sebelah kiri] | [sebelah kanan]
+#   Kodingan: H=Shade, M=Maximize, C=Minimize, &=separator, |=menu (kiri default),
+#   '|' = pemisah sisi kiri-kanan, dan tombol tanpa prefix artinya di kanan.
+#   Contoh: "HMC|"  -> Shade, Maximize, Minimize di kiri; Close di kanan.
+#   Contoh: "|HMC"  -> Menu kiri; Shade, Maximize, Minimize di kanan.
+#   Kita pilih: "HMC|" sehingga tombol close ada di kanan (paling kanan).
+set_xfconf xfwm4 /general/button_layout string "HMC|"
+# Title alignment: 0 = kiri, 1 = center, 2 = kanan (agar judul window rapi di kiri, tombol di kanan)
+set_xfconf xfwm4 /general/title_alignment int 0
+
 # ================= 6. Compositor: picom menggantikan compositor bawaan xfwm4 =================
 msg "Mengaktifkan picom (matikan compositor bawaan xfwm4)..."
 set_xfconf xfwm4 /general/use_compositing bool false
@@ -265,7 +284,7 @@ cat > "$AUTOSTART_DIR/picom.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Picom (compositor)
-Comment=Glassmorphism compositor
+Comment=Glassmorphism compositor ringan
 Exec=picom --daemon
 X-GNOME-Autostart-enabled=true
 EOF
@@ -317,7 +336,8 @@ msg "  Icon pack  : $ICON_THEME"
 msg "  Font       : JetBrainsMono Nerd Font + Inter"
 msg "  Compositor : picom (glassmorphism ringan)"
 msg "  Wallpaper  : $WALL_DIR/anime-${RESOLUTION}.jpg"
+msg "  Tombol window (close/minimize/maximize) sudah di kanan titlebar."
 msg ""
 msg "Langkah terakhir: logout lalu login kembali (atau restart X),"
-msg "agar tema, ikon, dan font diterapkan penuh."
+msg "agar tema, ikon, font, compositor, dan tombol window (close/min/maximize) diterapkan penuh."
 msg "======================================================="
