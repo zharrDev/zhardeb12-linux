@@ -1,0 +1,28 @@
+/* ============================================================
+   gtk.css — override warna GTK3 (warna dasar Catppuccin Mocha).
+   File ini DITULIS ULANG otomatis oleh update-wallpaper.sh
+   agar warna aplikasi GTK mengikuti warna dominan wallpaper
+   (via pywal). Jangan edit manual bila memakai pywal.
+   ============================================================ */
+@define-color theme_bg_color #1e1e2e;
+@define-color theme_fg_color #cdd6f4;
+@define-color theme_base_color #181825;
+@define-color theme_text_color #cdd6f4;
+@define-color theme_selected_bg_color #89b4fa;
+@define-color theme_selected_fg_color #1e1e2e;
+@define-color theme_unfocused_bg_color #1e1e2e;
+@define-color theme_unfocused_fg_color #a6adc8;
+@define-color theme_unfocused_base_color #181825;
+@define-color theme_unfocused_text_color #a6adc8;
+@define-color theme_unfocused_selected_bg_color #89b4fa;
+@define-color theme_unfocused_selected_fg_color #1e1e2e;
+@define-color borders #313244;
+@define-color unfocused_borders #26263a;
+@define-color insensitive_bg_color #313244;
+@define-color insensitive_fg_color #585b70;
+@define-color theme_tooltip_bg_color #1e1e2e;
+@define-color theme_tooltip_fg_color #cdd6f4;
+@define-color content_view_bg #181825;
+@define-color warning_color #f9e2af;
+@define-color error_color #f38ba8;
+@define-color success_color #a6e3a1;

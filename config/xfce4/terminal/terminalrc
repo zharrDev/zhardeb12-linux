@@ -1,0 +1,22 @@
+[Configuration]
+# ============================================================
+# xfce4-terminal — palette pastel anime (Catppuccin Mocha)
+# Background semi-transparan (blur di-handle picom)
+# ============================================================
+FontName=JetBrainsMono Nerd Font 11
+MiscShowWindowBorders=FALSE
+MiscMenubarDefault=FALSE
+MiscDefaultGeometry=100x28
+ScrollingLines=1000
+
+# Background semi-transparan: 0 = transparan penuh, 1 = solid
+BackgroundMode=TERMINAL_BACKGROUND_TRANSPARENT
+BackgroundDarkness=0.82
+
+# Palette 16 warna (Catppuccin Mocha)
+ColorPalette=#45475a;#f38ba8;#a6e3a1;#f9e2af;#89b4fa;#f5c2e7;#94e2d5;#bac2de;#585b70;#f38ba8;#a6e3a1;#f9e2af;#89b4fa;#f5c2e7;#94e2d5;#a6adc8
+
+# Warna dasar
+ColorForeground=#cdd6f4
+ColorBackground=#1e1e2e
+ColorCursor=#f5c2e7
