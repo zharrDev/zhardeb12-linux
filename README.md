@@ -76,7 +76,7 @@ Skrip akan:
 | Komponen | Default (terinstall) | Alternatif | Catatan |
 | --- | --- | --- | --- |
 | Tema GTK | **Catppuccin Mocha** (pastel, ringan, cocok anime) | WhiteSur (glassy macOS) | `THEME=whitesur bash xfce-anime-setup.sh` |
-| Icon pack | **Papirus-Dark** (netral, folder biru — cocok semua wallpaper) | Tela-circle | `ICONS=tela-circle bash xfce-anime-setup.sh` (bila gagal, otomatis fallback ke Papirus) |
+| Icon pack | **Tela-circle-blue-dark** (style bulat, folder **biru** — cocok wallpaper) | Papirus-Dark | `ICONS=papirus bash xfce-anime-setup.sh` (fallback otomatis bila Tela-circle gagal) |
 | Font terminal | JetBrainsMono Nerd Font | FiraCode, CaskaydiaCove | ubah di Preferences terminal |
 | Font UI | Inter | — | via `~/.config/gtk-3.0/settings.ini` |
 
@@ -186,7 +186,7 @@ Banner & avatar di-generate oleh `update-wallpaper.sh` ke
   `button:hover`, `menuitem:hover`, `row:hover`, tombol panel, dll.
 - **Notifikasi (xfce4-notifyd)**: `#XfceNotifyWindow` di gtk.css — latar warna
   wallpaper, border + tombol aksen biru.
-- **Ikon**: Papirus-Dark (folder biru, netral di semua wallpaper).
+- **Ikon**: Tela-circle-blue-dark — style bulat seperti awal, folder **biru** (bukan merah) senada wallpaper.
 
 ---
 

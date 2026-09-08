@@ -157,26 +157,26 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
         die "THEME tidak dikenal: $THEME (pilihan: catppuccin | whitesur)"
     fi
 
-    # --- Icon pack --- (catatan terbaru: Tela-circle tidak lagi menyediakan zip di release, jadi default ke Papirus)
+    # --- Icon pack --- (Tela-circle: install via git, folder BIRU; fallback Papirus)
     if [ "$ICONS" = "tela-circle" ]; then
-        if [ -d "$ICON_DIR/Tela-circle-dark" ]; then
-            msg "Icon pack Tela-circle sudah ada, lewati unduhan."
-            ICON_THEME="Tela-circle-dark"
+        if [ -d "$ICON_DIR/Tela-circle-blue-dark" ]; then
+            msg "Icon pack Tela-circle (folder biru) sudah ada."
+            ICON_THEME="Tela-circle-blue-dark"
         else
-            msg "Mengunduh icon pack Tela-circle (jika gagal, akan fallback ke Papirus)..."
+            msg "Menginstall icon pack Tela-circle (folder biru, via git)..."
             mkdir -p "$ICON_DIR"
-            if curl -fL --retry 2 -o /tmp/tela-circle.zip \
-                https://github.com/vinceliuice/Tela-circle-icon-theme/releases/latest/download/Tela-circle-dark.zip \
-                && unzip -oq /tmp/tela-circle.zip -d "$ICON_DIR" 2>/dev/null && [ -d "$ICON_DIR/Tela-circle-dark" ]; then
-                msg "Tela-circle berhasil diunduh."
-                ICON_THEME="Tela-circle-dark"
+            if command -v git >/dev/null 2>&1 \
+                && git clone --depth 1 https://github.com/vinceliuice/Tela-circle-icon-theme.git /tmp/Tela-circle-icon-theme 2>/dev/null \
+                && (cd /tmp/Tela-circle-icon-theme && ./install.sh -d "$ICON_DIR" -n Tela-circle blue) >/dev/null 2>&1 \
+                && [ -d "$ICON_DIR/Tela-circle-blue-dark" ]; then
+                msg "Tela-circle (folder biru) berhasil diinstall."
+                ICON_THEME="Tela-circle-blue-dark"
             else
-                warn "Tidak bisa mengunduh Tela-circle (repo GitHub tidak menyediakan asset zip terbaru)."
-                warn "Fallback ke Papirus (via apt)..."
+                warn "Gagal menginstall Tela-circle — fallback ke Papirus (folder biru)."
                 apt_install papirus-icon-theme
                 ICON_THEME="Papirus-Dark"
             fi
-            rm -f /tmp/tela-circle.zip
+            rm -rf /tmp/Tela-circle-icon-theme
         fi
     elif [ "$ICONS" = "papirus" ]; then
         apt_install papirus-icon-theme
@@ -191,7 +191,7 @@ else
     else
         GTK_THEME="WhiteSur-dark"; XFWM_THEME="WhiteSur-dark"
     fi
-    [ "$ICONS" = "papirus" ] && ICON_THEME="Papirus-Dark" || ICON_THEME="Tela-circle-dark"  # note: bila Tela-circle gagal di --skip-install, folder Tela-circle-dark belum tentu ada di disk
+    [ "$ICONS" = "papirus" ] && ICON_THEME="Papirus-Dark" || ICON_THEME="Tela-circle-blue-dark"  # note: bila Tela-circle gagal di --skip-install, folder Tela-circle-blue-dark belum tentu ada di disk
 fi
 
 # ================= 3. Konfigurasi (picom, terminal, gtk) =================
