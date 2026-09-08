@@ -7,6 +7,7 @@ require 'cairo'
 local HOME = os.getenv('HOME')
 local FONT = 'JetBrainsMono Nerd Font Mono'
 local BANNER = HOME .. '/.config/conky/anime-banner.png'
+local AVATAR = HOME .. '/.config/conky/anime-avatar.png'
 
 -- --- warna dari pywal -------------------------------------------------------
 local function wal_colors()
@@ -168,11 +169,26 @@ function conky_draw_card()
     -- 2) banner anime (top)
     draw_banner(cr, W, 120)
 
-    -- 3) header
+    -- 3) header + avatar anime (lingkaran kecil, gambar asset)
     cairo_set_source_rgba(cr, ACC[1], ACC[2], ACC[3], ACC[4])
     cairo_arc(cr, XL + 4, 143, 4, 0, 2 * math.pi)
     cairo_fill(cr)
     text(cr, 'S Y S T E M   M O N I T O R', XL + 16, 148, 11, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
+    local av = cairo_image_surface_create_from_png(AVATAR)
+    if av ~= nil and cairo_image_surface_get_width(av) > 0 then
+        local cx, cy, r = XR - 10, 146, 28
+        cairo_save(cr)
+        cairo_arc(cr, cx, cy, r, 0, 2 * math.pi)
+        cairo_clip(cr)
+        cairo_set_source_surface(cr, av, cx - r, cy - r)
+        cairo_paint(cr)
+        cairo_restore(cr)
+        cairo_set_source_rgba(cr, ACC[1], ACC[2], ACC[3], ACC[4])
+        cairo_set_line_width(cr, 2)
+        cairo_arc(cr, cx, cy, r, 0, 2 * math.pi)
+        cairo_stroke(cr)
+    end
+    cairo_surface_destroy(av)
 
     -- 4) jam besar + tanggal
     text(cr, conky_parse('${time %H:%M}'), XL, 196, 46, CAIRO_FONT_WEIGHT_BOLD, FGL, 'left')

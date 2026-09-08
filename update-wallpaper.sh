@@ -62,11 +62,24 @@ for key in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep 'last-image' ||
 done
 msg "Wallpaper diterapkan ke desktop."
 
-# 3b) Banner untuk widget conky anime-glass (crop atas dari gambar asli)
+# 3b) Banner & avatar untuk widget conky anime-glass (gambar tetap dari asset,
+#     bukan wallpaper — wallpaper desktop dipakai gambar landscape saja)
+#     BANNER_IMG / AVATAR_IMG bisa di-override via env.
 mkdir -p "$CFG_DIR/conky"
-convert "$IMG" -resize 400x130^ -gravity North -extent 400x130 "$CFG_DIR/conky/anime-banner.png" 2>/dev/null \
-    && msg "Banner conky -> $CFG_DIR/conky/anime-banner.png" \
-    || warn "Gagal membuat banner conky."
+BANNER_IMG="${BANNER_IMG:-$WALL_DIR/影.jpeg}"
+AVATAR_IMG="${AVATAR_IMG:-$WALL_DIR/968133251138558907.jpeg}"
+if [ -f "$BANNER_IMG" ]; then
+    convert "$BANNER_IMG" -resize 400x130^ -gravity North -extent 400x130 "$CFG_DIR/conky/anime-banner.png" 2>/dev/null \
+        && msg "Banner conky -> $CFG_DIR/conky/anime-banner.png (${BANNER_IMG##*/})" \
+        || warn "Gagal membuat banner conky."
+else
+    warn "Gambar banner tidak ditemukan: $BANNER_IMG"
+fi
+if [ -f "$AVATAR_IMG" ]; then
+    convert "$AVATAR_IMG" -resize 56x56^ -gravity Center -extent 56x56 "$CFG_DIR/conky/anime-avatar.png" 2>/dev/null \
+        && msg "Avatar conky -> $CFG_DIR/conky/anime-avatar.png (${AVATAR_IMG##*/})" \
+        || warn "Gagal membuat avatar conky."
+fi
 
 # 4) Pywal: samakan warna seluruh UI dengan warna dominan wallpaper
 if [ -x "$WAL_BIN" ]; then

@@ -152,19 +152,25 @@ conky -c ~/.config/conky/anime-glass.conf
 
 ---
 
-## 🖼 Semua Gambar Asset Dipakai — Rotasi Wallpaper (tiap 30 menit)
+## 🖼 Penempatan Gambar Asset (wallpaper desktop = hanya yang landscape)
 
-Semua gambar anime di `asset/` (dan `~/Pictures/Wallpapers/Anime/`) dipakai
-bergiliran sebagai wallpaper. Setiap ganti, warna UI ikut berubah otomatis
-(pywal → panel, terminal, GTK, conky + banner).
+Wallpaper **desktop dipakai gambar landscape saja** (`916764067907298333.jpeg`),
+sesuai permintaan. Gambar asset lainnya ditempatkan di lokasi yang cocok:
 
-```bash
-~/.local/bin/rotate-wallpaper.sh   # ganti ke gambar berikutnya (manual)
-```
+| Gambar | Tempat |
+| --- | --- |
+| `916764067907298333.jpeg` (landscape) | **Wallpaper desktop** + sumber warna UI (pywal) |
+| `影.jpeg` | **Banner conky** (atas kartu anime-glass) |
+| `968133251138558907.jpeg` | **Avatar conky** (lingkaran kecil di header kartu) |
+| `1147432811330550518.jpeg` | **Background terminal kitty** (dim, `background_opacity 0.45`) |
 
-- Terpasang otomatis oleh `xfce-anime-setup.sh` (autostart tiap 30 menit).
-- State urutan disimpan di `~/Pictures/Wallpapers/Anime/.rotate-state`.
-- Gambar asli (`*.jpeg`/`*.png`) dipakai; hasil konversi `anime-*.jpg` di-skip.
+Banner & avatar di-generate oleh `update-wallpaper.sh` ke
+`~/.config/conky/anime-banner.png` & `anime-avatar.png`.
+
+> ⚙️ Rotasi wallpaper **tidak lagi otomatis** (autostart dihapus). Kalau tetap
+> mau bergiliran manual, gunakan `~/.local/bin/rotate-wallpaper.sh` (semua
+> gambar di `~/Pictures/Wallpapers/Anime/`); state disimpan di
+> `~/Pictures/Wallpapers/Anime/.rotate-state`.
 
 ---
 
