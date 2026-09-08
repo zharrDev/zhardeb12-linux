@@ -39,9 +39,13 @@ command -v xfconf-query >/dev/null 2>&1 || die "xfconf-query belum terpasang (Xf
 
 mkdir -p "$WALL_DIR" "$CFG_DIR/gtk-3.0"
 
-# 1) Salin asli
-cp -f "$IMG" "$WALL_DIR/$(basename "$IMG")"
-msg "Asli disalin -> $WALL_DIR/$(basename "$IMG")"
+# 1) Salin asli (lewati bila sudah berada di folder wallpaper)
+if [ "$(readlink -f "$IMG")" != "$WALL_DIR/$(basename "$IMG")" ]; then
+    cp -f "$IMG" "$WALL_DIR/$(basename "$IMG")"
+    msg "Asli disalin -> $WALL_DIR/$(basename "$IMG")"
+else
+    msg "Gambar sudah ada di folder wallpaper."
+fi
 
 # 2) Versi landscape blur-fill
 W="${RES%x*}"; H="${RES#*x}"
@@ -145,50 +149,99 @@ css = f"""/* Ditulis otomatis oleh update-wallpaper.sh (pywal) — jangan edit m
 @define-color error_color #{strip_hash(colors[1])};
 @define-color success_color #{strip_hash(colors[2])};
 """
+# Bagian ini string biasa (bukan f-string) karena memakai kurung kurawal CSS
+css_static = """
+/* ===== override widget agar aplikasi (Thunar, dll) ikut warna wallpaper ===== */
+window, .background, decoration {
+    background-color: @theme_bg_color;
+}
+headerbar, .titlebar, toolbar, .toolbar {
+    background-color: shade(@theme_bg_color, 1.12);
+}
+entry {
+    background-color: @theme_base_color;
+    border-color: shade(@theme_bg_color, 1.5);
+}
+entry:focus {
+    border-color: @theme_selected_bg_color;
+}
+button {
+    background-color: shade(@theme_bg_color, 1.15);
+    border-color: shade(@theme_bg_color, 1.45);
+}
+button:hover {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+    border-color: @theme_selected_bg_color;
+}
+button:active, button:checked, button:checked:hover {
+    background-color: shade(@theme_selected_bg_color, 0.78);
+    color: #ffffff;
+    border-color: shade(@theme_selected_bg_color, 0.78);
+}
+menu, menubar, .menu {
+    background-color: @theme_bg_color;
+}
+menuitem:hover, menuitem:selected {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+}
+:selected {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+}
+treeview.view, list, row {
+    background-color: @theme_bg_color;
+}
+treeview.view:hover, row:hover, .view:hover {
+    background-color: alpha(@theme_selected_bg_color, 0.28);
+}
+tooltip, .tooltip {
+    background-color: @theme_tooltip_bg_color;
+    color: @theme_tooltip_fg_color;
+    border: 1px solid @theme_selected_bg_color;
+    border-radius: 8px;
+}
+scrollbar slider {
+    background-color: alpha(@theme_selected_bg_color, 0.75);
+    border-radius: 6px;
+}
+/* panel xfce: hover tombol (tasklist, menu, systray, clock, actions) */
+#xfce4-panel button, #xfce4-panel .toggle,
+.xfce4-panel button, .xfce4-panel .toggle {
+    border-radius: 9px;
+}
+#xfce4-panel button:hover, #xfce4-panel .toggle:hover,
+.xfce4-panel button:hover, .xfce4-panel .toggle:hover {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+    border-color: @theme_selected_bg_color;
+}
+/* notifikasi xfce4-notifyd */
+#XfceNotifyWindow {
+    background-color: @theme_bg_color;
+    border: 1px solid @theme_selected_bg_color;
+    border-radius: 12px;
+}
+#XfceNotifyWindow label#summary {
+    color: @theme_fg_color;
+    font-weight: bold;
+}
+#XfceNotifyWindow label#body {
+    color: @theme_fg_color;
+}
+#XfceNotifyWindow button:hover {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+}
+"""
+css = css + css_static
 with open(gtk_css, "w") as f:
     f.write(css)
 print("  gtk.css         : warna aplikasi GTK mengikuti wallpaper")
-
-# --- c) Panel Xfce: latar panel diambil dari warna dominan (color0) ---
-if os.path.exists(panel_xml):
-    try:
-        tree = ET.parse(panel_xml)
-        root = tree.getroot()
-        panels = root.find(".//property[@name='panels']")
-        changed = False
-        if panels is not None:
-            for panel in panels.findall("property"):
-                name = panel.get("name", "")
-                if not re.match(r"^panel-\d+$", name):
-                    continue
-                # pastikan background-style = 1 (solid)
-                style = panel.find("property[@name='background-style']")
-                if style is not None:
-                    style.set("value", "1")
-                else:
-                    ET.SubElement(panel, "property", {"name": "background-style", "type": "uint", "value": "1"})
-                # set background-color (RGBA double) dari color0 wallpaper
-                bg_arr = panel.find("property[@name='background-rgba']")
-                if bg_arr is None:
-                    bg_arr = ET.SubElement(panel, "property", {"name": "background-rgba", "type": "array"})
-                vals = bg_arr.findall("value")
-                rgb = hex_to_rgb(bg)
-                new_vals = [f"{v/255:.6f}" for v in rgb] + ["0.72"]
-                for i, v in enumerate(vals):
-                    v.set("value", new_vals[i])
-                for extra in new_vals[len(vals):]:
-                    ET.SubElement(bg_arr, "value", {"type": "double", "value": extra})
-                changed = True
-        if changed:
-            ET.indent(tree, space="")
-            tree.write(panel_xml, encoding="UTF-8", xml_declaration=True)
-            print("  panel xfce4     : latar panel mengikuti wallpaper")
-    except Exception as e:
-        print(f"  [abaikan] panel tidak diubah: {e}")
 PY
 
-        # Panel: terapkan warna latar via xfconf-query (andal; edit XML saja
-        # kadang tidak sampai ke xfconfd) lalu restart panel
+# --- c) Panel Xfce: warna latar panel via xfconf-query (andal) ---
         if command -v xfconf-query >/dev/null 2>&1; then
             PANEL_BG="$(sed -n '1p' "$COLORS_FILE" 2>/dev/null || echo '#363815')"
             eval "$(python3 - "$PANEL_BG" <<'PY2'

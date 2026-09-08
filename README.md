@@ -76,7 +76,7 @@ Skrip akan:
 | Komponen | Default (terinstall) | Alternatif | Catatan |
 | --- | --- | --- | --- |
 | Tema GTK | **Catppuccin Mocha** (pastel, ringan, cocok anime) | WhiteSur (glassy macOS) | `THEME=whitesur bash xfce-anime-setup.sh` |
-| Icon pack | **Papirus** (stabil, tersedia di apt Debian 12) | Tela-circle | `ICONS=tela-circle bash xfce-anime-setup.sh` (bila gagal, otomatis fallback ke Papirus) |
+| Icon pack | **Papirus-Dark** (netral, folder biru — cocok semua wallpaper) | Tela-circle | `ICONS=tela-circle bash xfce-anime-setup.sh` (bila gagal, otomatis fallback ke Papirus) |
 | Font terminal | JetBrainsMono Nerd Font | FiraCode, CaskaydiaCove | ubah di Preferences terminal |
 | Font UI | Inter | — | via `~/.config/gtk-3.0/settings.ini` |
 
@@ -149,6 +149,38 @@ conky -c ~/.config/conky/anime-glass.conf
 
 > 💡 Jika ingin widget dipindah: ubah `gap_x` / `gap_y` di
 > `~/.config/conky/anime-glass.conf` lalu restart conky.
+
+---
+
+## 🖼 Semua Gambar Asset Dipakai — Rotasi Wallpaper (tiap 30 menit)
+
+Semua gambar anime di `asset/` (dan `~/Pictures/Wallpapers/Anime/`) dipakai
+bergiliran sebagai wallpaper. Setiap ganti, warna UI ikut berubah otomatis
+(pywal → panel, terminal, GTK, conky + banner).
+
+```bash
+~/.local/bin/rotate-wallpaper.sh   # ganti ke gambar berikutnya (manual)
+```
+
+- Terpasang otomatis oleh `xfce-anime-setup.sh` (autostart tiap 30 menit).
+- State urutan disimpan di `~/Pictures/Wallpapers/Anime/.rotate-state`.
+- Gambar asli (`*.jpeg`/`*.png`) dipakai; hasil konversi `anime-*.jpg` di-skip.
+
+---
+
+## 🎯 Warna Aplikasi, Hover, dan Notifikasi Ikut Wallpaper
+
+- **Aplikasi GTK (Thunar, dialog, dll)**: `~/.config/gtk-3.0/gtk.css`
+  di-generate oleh `update-wallpaper.sh` berisi override widget langsung
+  (background window, toolbar, entry, menu, list) memakai warna dominan
+  wallpaper — jadi Thunar & aplikasi lain senada wallpaper, bukan warna
+  tema bawaan.
+- **Hover biru (semua tombol/menu/panel/tasklist)**: warna hover diambil dari
+  palet wallpaper (aksen biru `colors[5]`) lewat `theme_selected_bg_color` —
+  `button:hover`, `menuitem:hover`, `row:hover`, tombol panel, dll.
+- **Notifikasi (xfce4-notifyd)**: `#XfceNotifyWindow` di gtk.css — latar warna
+  wallpaper, border + tombol aksen biru.
+- **Ikon**: Papirus-Dark (folder biru, netral di semua wallpaper).
 
 ---
 

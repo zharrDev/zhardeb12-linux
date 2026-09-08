@@ -355,6 +355,27 @@ else
     warn "Conky gagal start — cek /tmp/conky-anime-glass.log"
 fi
 
+# ================= 9b. Rotasi wallpaper (semua gambar asset dipakai) =================
+# rotate-wallpaper.sh dipasang di ~/.local/bin, ganti wallpaper bergiliran
+# tiap 30 menit; warna UI (panel, terminal, conky, hover) ikut wallpaper baru.
+if [ -f "$SRC_DIR/rotate-wallpaper.sh" ]; then
+    mkdir -p "$HOME/.local/bin"
+    install_file "$SRC_DIR/rotate-wallpaper.sh" "$HOME/.local/bin/rotate-wallpaper.sh"
+    chmod +x "$HOME/.local/bin/rotate-wallpaper.sh"
+    install_file "$SRC_DIR/update-wallpaper.sh" "$HOME/.local/bin/update-wallpaper.sh"
+    chmod +x "$HOME/.local/bin/update-wallpaper.sh"
+    cat > "$AUTOSTART_DIR/rotate-wallpaper.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Rotate Wallpaper Anime
+Comment=Ganti wallpaper anime bergiliran tiap 30 menit + samakan warna UI
+Exec=sh -c "sleep 10 && $HOME/.local/bin/rotate-wallpaper.sh; while true; do sleep 1800; $HOME/.local/bin/rotate-wallpaper.sh; done"
+X-GNOME-Autostart-enabled=true
+EOF
+    msg "Rotasi wallpaper -> $AUTOSTART_DIR/rotate-wallpaper.desktop (tiap 30 menit)"
+    msg "Coba manual: ~/.local/bin/rotate-wallpaper.sh"
+fi
+
 # ================= 10. Selesai =================
 echo
 msg "======================================================="
