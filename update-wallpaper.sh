@@ -5,6 +5,13 @@
 # Cara pakai:
 #   ./update-wallpaper.sh /path/ke/gambar-anime.jpg
 #   ./update-wallpaper.sh /path/ke/gambar-anime.jpg 2560x1440   # resolusi kustom
+#   ./update-wallpaper.sh --random                               # wallpaper acak
+#   ./update-wallpaper.sh --random 2560x1440                     # acak + resolusi
+#
+# Sumber koleksi (ala By-LeyzS):
+#   - ~/Pictures/Wallpapers/Anime/   (gambar asli hasil upload)
+#   - ~/.config/wallpapers/originals (koleksi bawaan repo zhardeb)
+#   - ~/.config/wallpapers/          (taruh gambar baru di sini juga bisa)
 #
 # Yang dilakukan:
 #   1. Salin gambar asli          -> ~/Pictures/Wallpapers/Anime/
@@ -19,8 +26,46 @@
 # ------------------------------------------------------------
 set -euo pipefail
 
-IMG="${1:-}"
-RES="${RESOLUTION:-${2:-1920x1080}}"
+RANDOM_MODE=0
+POS_ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --random|-r) RANDOM_MODE=1 ;;
+        -h|--help) sed -n '5,14p' "$0" | sed 's/^# //; s/^#//'; exit 0 ;;
+        *) POS_ARGS+=("$arg") ;;
+    esac
+done
+IMG="${POS_ARGS[0]:-}"
+RES="${RESOLUTION:-${POS_ARGS[1]:-1920x1080}}"
+
+# Koleksi wallpaper terpusat (ala Hyprland dotfiles)
+CONFIG_WALLS="$HOME/.config/wallpapers"
+WALLPOOLS=(
+    "$HOME/Pictures/Wallpapers/Anime"
+    "$CONFIG_WALLS"
+    "$CONFIG_WALLS/originals"
+)
+
+if [ "$RANDOM_MODE" -eq 1 ]; then
+    # kumpulkan gambar ASLI dari semua pool; tanpa duplikat (per nama file),
+    # tanpa hasil generate (anime-*.jpg) agar tidak dobel blur-fill
+    declare -A seen_by_name
+    ALL_IMGS=()
+    for pool in "${WALLPOOLS[@]}"; do
+        [ -d "$pool" ] || continue
+        while IFS= read -r -d '' f; do
+            base="$(basename "$f")"
+            case "$base" in anime-*.jpg|anime-*.png|anime-*.jpeg) continue ;; esac
+            [ -n "${seen_by_name[$base]:-}" ] && continue
+            seen_by_name[$base]=1; ALL_IMGS+=("$f")
+        done < <(find "$pool" -maxdepth 1 -type f \
+            \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) -print0 | sort -z)
+    done
+    [ "${#ALL_IMGS[@]}" -gt 0 ] || { echo "[wallpaper] tidak ada gambar di koleksi."; exit 1; }
+    RANDOM_INDEX=$(( RANDOM % ${#ALL_IMGS[@]} ))
+    IMG="${ALL_IMGS[$RANDOM_INDEX]}"
+    printf '\033[1;36m[wallpaper]\033[0m Acak: %s (%d/%d)\n' "${IMG##*/}" $((RANDOM_INDEX+1)) "${#ALL_IMGS[@]}"
+fi
 
 WALL_DIR="$HOME/Pictures/Wallpapers/Anime"
 CFG_DIR="$HOME/.config"
@@ -47,6 +92,15 @@ else
     msg "Gambar sudah ada di folder wallpaper."
 fi
 
+# 1b) Sinkronkan koleksi bawaan repo (config/wallpapers/originals) ke
+#     ~/.config/wallpapers/originals agar --random punya koleksi lengkap.
+if [ -d "$HOME/Documents/zhardeb/config/wallpapers/originals" ] && [ "$HOME/Documents/zhardeb" != "$HOME" ]; then
+    mkdir -p "$CONFIG_WALLS/originals"
+    find "$HOME/Documents/zhardeb/config/wallpapers/originals" -maxdepth 1 -type f \
+        \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) \
+        -exec cp -un {} "$CONFIG_WALLS/originals/" \; 2>/dev/null || true
+fi
+
 # 2) Versi landscape blur-fill
 W="${RES%x*}"; H="${RES#*x}"
 LANDSCAPE="$WALL_DIR/anime-${RES}.jpg"
@@ -66,8 +120,20 @@ msg "Wallpaper diterapkan ke desktop."
 #     bukan wallpaper — wallpaper desktop dipakai gambar landscape saja)
 #     BANNER_IMG / AVATAR_IMG bisa di-override via env.
 mkdir -p "$CFG_DIR/conky"
-BANNER_IMG="${BANNER_IMG:-$WALL_DIR/影.jpeg}"
-AVATAR_IMG="${AVATAR_IMG:-$WALL_DIR/968133251138558907.jpeg}"
+find_banner() {
+    for c in "$CONFIG_WALLS/originals/影.jpeg" "$WALL_DIR/影.jpeg"; do
+        [ -f "$c" ] && { printf '%s' "$c"; return; }
+    done
+    printf '%s' ""
+}
+find_avatar() {
+    for c in "$CONFIG_WALLS/originals/968133251138558907.jpeg" "$WALL_DIR/968133251138558907.jpeg"; do
+        [ -f "$c" ] && { printf '%s' "$c"; return; }
+    done
+    printf '%s' ""
+}
+BANNER_IMG="${BANNER_IMG:-$(find_banner)}"
+AVATAR_IMG="${AVATAR_IMG:-$(find_avatar)}"
 if [ -f "$BANNER_IMG" ]; then
     convert "$BANNER_IMG" -resize 400x130^ -gravity North -extent 400x130 "$CFG_DIR/conky/anime-banner.png" 2>/dev/null \
         && msg "Banner conky -> $CFG_DIR/conky/anime-banner.png (${BANNER_IMG##*/})" \

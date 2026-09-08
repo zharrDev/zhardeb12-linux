@@ -10,7 +10,15 @@ yang menyesuaikan wallpaper anime secara otomatis.
 
 ## 📦 Gambar yang tersedia
 
-Semua gambar anime ada di `asset/`:
+Koleksi wallpaper terpusat ala By-LeyzS-Arch-Hyprland-Dotfiles:
+
+| Lokasi | Isi |
+| --- | --- |
+| `config/wallpapers/originals/` | **Koleksi repo** — gambar anime asli (4 gambar) |
+| `~/.config/wallpapers/originals/` | Koleksi yang disalin ke sistem oleh installer |
+| `~/Pictures/Wallpapers/Anime/` | Gambar hasil upload manual + versi landscape |
+
+Gambar asli:
 
 | File | Keterangan |
 | --- | --- |
@@ -59,6 +67,7 @@ Pasang wallpaper anime baru:
 ```bash
 ./update-wallpaper.sh /path/ke/gambar-anime.jpg             # 1920x1080
 ./update-wallpaper.sh /path/ke/gambar-anime.jpg 2560x1440  # resolusi kustom
+./update-wallpaper.sh --random                              # pilih acak dari koleksi
 ```
 Skrip akan:
 1. Salin gambar ke `~/Pictures/Wallpapers/Anime/`
@@ -68,6 +77,12 @@ Skrip akan:
    - warna panel, GTK, teks ikon desktop
    - palette terminal baru
 5. Restart panel + kirim warna ke kitty (bila terpasang)
+
+Rotasi bergilir semua gambar koleksi:
+```bash
+./rotate-wallpaper.sh           # bergilir (urut)
+./rotate-wallpaper.sh --random  # acak
+```
 
 ---
 
@@ -283,6 +298,17 @@ konfigurasi shell `.bashrc`/`.zshrc` yang menautkan `wal`).
 
 ---
 
+## 🔒 Lock screen ringan (light-locker)
+
+Lock screen memakai **light-locker** (~10 MB RAM) — jauh lebih ringan dari
+xscreensaver. Installer menulis override autostart
+`~/.config/autostart/light-locker.desktop` (menimpa versi polos dari
+`/etc/xdg/autostart/` sehingga hanya satu instance) dengan flag:
+- `--lock-on-suspend` — kunci layar otomatis saat suspend/resume
+- `--lock-on-lid` — kunci saat laptop lid ditutup
+
+---
+
 ## 🧹 Batal / Uninstall
 
 - Hapus `~/.config/picom`, `~/.config/autostart/picom.desktop`, kembalikan `.bak`
@@ -299,12 +325,14 @@ konfigurasi shell `.bashrc`/`.zshrc` yang menautkan `wal`).
 ```
 /home/suo/Documents/zhardeb/
 ├── xfce-anime-setup.sh        # installer utama (1-klik)
-├── update-wallpaper.sh        # ganti wallpaper + warna UI otomatis
+├── update-wallpaper.sh        # ganti wallpaper + warna UI otomatis (--random)
+├── rotate-wallpaper.sh        # rotasi wallpaper bergilir/acak
 ├── README.md                  # panduan ini
 ├── config/
+│   ├── wallpapers/            # koleksi wallpaper terpusat (originals/)
 │   ├── picom/picom.conf       # konfigurasi glassmorphism ringan
 │   ├── conky/anime-glass.conf # widget info desktop (kiri-tengah)
-│   ├── conky/anime-glass.lua  # gambar kartu glass (warna dari pywal)
+│   ├── conky/anime-glass.lua # gambar kartu glass (warna dari pywal)
 │   ├── xfce4/terminal/terminalrc
 │   ├── xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 │   ├── gtk-3.0/settings.ini

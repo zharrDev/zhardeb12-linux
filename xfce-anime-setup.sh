@@ -217,17 +217,23 @@ if [ "$WITH_KITTY" -eq 1 ]; then
 fi
 
 # ================= 4. Wallpaper anime (landscape blur-fill) =================
-# Semua gambar di asset/ disalin ke ~/Pictures/Wallpapers/Anime/;
-# gambar utama (916764067907298333.jpeg) dipakai sebagai wallpaper default.
-mkdir -p "$WALL_DIR"
+# Koleksi terpusat ala By-LeyzS: repo config/wallpapers/ -> ~/.config/wallpapers/
+# (originals = gambar asli; hasil landscape blur-fill tetap di ~/Pictures/...).
+mkdir -p "$WALL_DIR" "$CFG_DIR/wallpapers/originals"
 PRIMARY="916764067907298333.jpeg"
 DEFAULT_IMG=""
+for f in "$SRC_DIR"/config/wallpapers/originals/*.jpeg \
+         "$SRC_DIR"/config/wallpapers/originals/*.jpg \
+         "$SRC_DIR"/config/wallpapers/originals/*.png; do
+    [ -f "$f" ] || continue
+    cp -un "$f" "$CFG_DIR/wallpapers/originals/" 2>/dev/null || cp -f "$f" "$CFG_DIR/wallpapers/originals/"
+done
 for f in "$SRC_DIR"/asset/*.jpeg "$SRC_DIR"/asset/*.jpg "$SRC_DIR"/asset/*.png; do
     [ -f "$f" ] || continue
     cp -f "$f" "$WALL_DIR/$(basename "$f")"
     [ "$(basename "$f")" = "$PRIMARY" ] && DEFAULT_IMG="$f"
 done
-msg "Semua gambar anime disalin -> $WALL_DIR/"
+msg "Koleksi wallpaper -> $CFG_DIR/wallpapers/ (originals: $(ls "$CFG_DIR/wallpapers/originals" | wc -l) gambar)"
 
 # Fallback: bila gambar utama tidak ada, pakai gambar pertama yang ditemukan
 if [ -z "$DEFAULT_IMG" ]; then
@@ -292,6 +298,26 @@ EOF
 msg "Autostart picom -> $AUTOSTART_DIR/picom.desktop"
 pkill -x picom 2>/dev/null || true
 picom --daemon 2>/dev/null && msg "Picom berjalan." || warn "Picom gagal start (cek driver GPU)."
+
+# ================= 6b. Lock screen ringan (light-locker) =================
+# light-locker: lock screen ~10MB RAM. Sistem sudah autostart versi polos dari
+# /etc/xdg/autostart/light-locker.desktop — file user dengan nama SAMA akan
+# menimpanya, sehingga hanya satu instance jalan, tapi dengan flag kita:
+# kunci otomatis saat suspend & lid close.
+if command -v light-locker >/dev/null 2>&1; then
+    msg "Mengaktifkan light-locker (lock screen ringan)..."
+    cat > "$AUTOSTART_DIR/light-locker.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Light Locker (lock screen)
+Comment=Lock screen ringan — aktif saat idle/suspend/lid
+Exec=light-locker --lock-on-suspend --lock-on-lid
+X-GNOME-Autostart-enabled=true
+EOF
+    msg "Autostart light-locker (override sistem) -> $AUTOSTART_DIR/light-locker.desktop"
+else
+    warn "light-locker belum terpasang — install: sudo apt install light-locker"
+fi
 
 # ================= 7. Panel floating (opsional) =================
 if [ "$APPLY_PANEL" -eq 1 ]; then

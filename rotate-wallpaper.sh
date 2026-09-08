@@ -2,16 +2,16 @@
 #
 # rotate-wallpaper.sh — ganti wallpaper anime bergiliran + samakan warna UI.
 #
-# Semua gambar asli (asset) di ~/Pictures/Wallpapers/Anime/*.jpeg|png dipakai
-# bergantian. Setiap ganti, update-wallpaper.sh dijalankan sehingga warna
-# panel, terminal, conky (termasuk banner & hover biru) ikut wallpaper baru.
+# Semua gambar asli dari koleksi terpusat dipakai bergantian:
+#   - ~/Pictures/Wallpapers/Anime/
+#   - ~/.config/wallpapers/originals/   (koleksi bawaan repo, ala By-LeyzS)
+# Setiap ganti, update-wallpaper.sh dijalankan sehingga warna panel, terminal,
+# conky (termasuk banner & hover biru) ikut wallpaper baru.
 #
 # Cara pakai:
 #   ./rotate-wallpaper.sh          # ganti ke gambar berikutnya (manual)
+#   ./rotate-wallpaper.sh --random # ganti ke gambar acak (alias --random)
 #   IMGDIR=/path bash rotate-wallpaper.sh
-#
-# Autostart: diinstall ke ~/.local/bin/rotate-wallpaper.sh + loop tiap 30 menit
-# via ~/.config/autostart/rotate-wallpaper.desktop (lihat xfce-anime-setup.sh).
 #
 set -euo pipefail
 
@@ -24,6 +24,11 @@ UPDATE_SH="$SCRIPT_DIR/update-wallpaper.sh"
 [ -x "$UPDATE_SH" ] || UPDATE_SH="$HOME/Documents/zhardeb/update-wallpaper.sh"
 [ -x "$UPDATE_SH" ] || UPDATE_SH="$(pwd)/update-wallpaper.sh"
 [ -x "$UPDATE_SH" ] || { echo "[rotate] update-wallpaper.sh tidak ditemukan."; exit 1; }
+
+# mode acak -> langsung delegasi ke update-wallpaper.sh --random
+if [ "${1:-}" = "--random" ] || [ "${1:-}" = "-r" ]; then
+    exec bash "$UPDATE_SH" --random
+fi
 
 [ -d "$IMGDIR" ] || { echo "[rotate] folder tidak ada: $IMGDIR"; exit 1; }
 
