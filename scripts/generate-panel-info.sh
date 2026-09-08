@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # generate-panel-info.sh — tambah plugin informasi (jam, tanggal, CPU, RAM, cuaca)
-# ke panel XFCE floating.
+# ke panel XFCE floating (pill-shaped, transparan, blur).
 #
-# Cara pakai (setelah login):
+# Cara pakai (setelah login & panel berjalan):
 #   bash generate-panel-info.sh
 #
 # Apa yang dilakukan:
@@ -12,6 +12,15 @@
 #       • xfce4-sensors → CPU%, RAM usage, suhu (info sistem)
 #       • weather       → cuaca daerah (opsional)
 #   - Mengatur posisi plugin di panel (kiri = info, kanan = menu/systray/actions).
+#   - Me-restart panel agar plugin muncul.
+#
+# Catatan:
+#   - Plugin yang ditambahkan: clock, xfce4-sensors, weather.
+#   - Informasi CPU/RAM muncul dari xfce4-sensors-plugin (sudah terpasang).
+#   - Jam & tanggal muncul dari plugin clock.
+#   - Cuaca muncul dari plugin weather (opsional).
+#   - Panel pill-shaped (rounded) karena corner-radius=14 di picom.conf.
+#   - Panel semi-transparan (rgba(30,30,46,0.78)) — warna diatur oleh pywal.
 #
 # Plugin yang tersedia di sistem (diperiksa dari /usr/share/xfce4/panel/plugins):
 #
@@ -20,7 +29,7 @@ set -euo pipefail
 PANEL_NAME="xfce4-panel"
 
 # --- 1. Pastikan panel berjalan & kita punya hak akses ke xfconf ---
-xfce4-panel --query >/dev/null 2>&1 || { echo "[peringatan] panel tidak berjalan."; exit 0; }
+xfce4-panel --help >/dev/null 2>&1 || { echo "[peringatan] panel tidak berjalan."; exit 0; }
 
 # --- 2. Tentukan urutan plugin yang diinginkan ---
 # Urutan kiri→kanan di panel:
@@ -106,6 +115,7 @@ echo "Catatan:"
 echo "  • Clock muncul di panel dengan format tanggal & jam."
 echo "  • CPU & RAM muncul dari xfce4-sensors-plugin."
 echo "  • Cuaca dari weather-plugin (opsional)."
-echo "  • Panel semi-transparan (rgba(30,30,46,0.82)) — warna diatur oleh pywal."
+echo "  • Panel semi-transparan (rgba(30,30,46,0.78)) — warna diatur oleh pywal."
+echo "  • Panel pill-shaped (rounded) — corner-radius=14 di picom.conf."
 echo ""
 echo "Jika plugin tidak muncul, buka Panel Preferences → Add → pilih plugin yang diinginkan."
