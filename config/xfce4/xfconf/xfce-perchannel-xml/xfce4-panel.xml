@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Panel Xfce floating (mengambang) di tengah atas, semi-transparan.
-  Menampilkan: showdesktop, aplikasi menu, tasklist, systray (iklan/battery/etc),
-  clock, dan actions (lock/logout). Warna & transparansi diatur oleh picom + pywal.
+  Panel Xfce floating (mengambang) di tengah atas, bentuk pill (rounded),
+  semi-transparan. Menampilkan: showdesktop, aplikasi menu, tasklist,
+  systray (iklan/battery/etc), clock, dan actions (lock/logout).
+  Warna & transparansi diatur oleh picom + pywal.
   Dipasang oleh xfce-anime-setup.sh dengan opsi apply-panel (backup otomatis dibuat).
   Catatan: panel floating, jadi bisa digerakkan. Bila ingin tetap di tengah,
   klik kanan -> Unlock Panel, geser ke posisi yang diinginkan lalu kunci lagi.
@@ -14,18 +15,18 @@
 <property name="dark-mode" type="bool" value="true"/>
 <property name="panel-1" type="empty">
 <property name="position" type="string" value="p=11;x=0;y=0"/>
-<property name="length" type="uint" value="520"/>
+<property name="length" type="uint" value="480"/>
 <property name="length-adjust" type="bool" value="false"/>
 <property name="position-locked" type="bool" value="false"/>
-<property name="icon-size" type="uint" value="18"/>
-<property name="size" type="uint" value="42"/>
+<property name="icon-size" type="uint" value="16"/>
+<property name="size" type="uint" value="44"/>
 <property name="autohide-behavior" type="uint" value="0"/>
 <property name="background-style" type="uint" value="1"/>
 <property name="background-color" type="array">
 <value type="double" value="0.117647"/>
 <value type="double" value="0.117647"/>
 <value type="double" value="0.180392"/>
-<value type="double" value="0.82"/>
+<value type="double" value="0.78"/>
 </property>
 <property name="plugin-ids" type="array">
 <value type="int" value="1"/>
