@@ -79,7 +79,7 @@ done
 # --- 5. Set plugin baru ke panel (via xfconf-query) ---
 for plugin in "${WANTED[@]}"; do
     if [ -n "${PLUGIN_ID_MAP[$plugin]+_}" ]; then
-        local id="${PLUGIN_ID_MAP[$plugin]}"
+        id="${PLUGIN_ID_MAP[$plugin]}"
         xfconf-query -c "$PANEL_NAME" -p "/plugins/plugin-$id" \
             -s "$plugin" -t string 2>/dev/null || \
             echo "[peringatan] gagal men-set plugin $plugin"
@@ -89,10 +89,11 @@ done
 # --- 6. Atur properti khusus (untuk clock, sensors, weather) ---
 # Clock: format tanggal & jam yang elegan (contoh: "Sen, 23 Feb 2026 | 14:30")
 for id in "${!PLUGIN_ID_MAP[@]}"; do
-    case "${PLUGIN_ID_MAP[$id]}" in
+    id_val="${PLUGIN_ID_MAP[$id]}"
+    case "$id_val" in
         clock)
             # Mengatur format clock (jika properti tersedia)
-            xfconf-query -c "$PANEL_NAME" -p "/plugins/plugin-${PLUGIN_ID_MAP[$id]}/format" \
+            xfconf-query -c "$PANEL_NAME" -p "/plugins/plugin-$id_val/format" \
                 -s "%a, %d %b %Y  |  %H:%M" -t string 2>/dev/null || true
             ;;
         xfce4-sensors)
