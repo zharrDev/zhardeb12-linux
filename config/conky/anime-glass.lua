@@ -1,11 +1,12 @@
 -- ============================================================================
---  anime-glass.lua — menggambar kartu glass elegan untuk conky
+--  anime-glass.lua — kartu glass elegan dengan banner anime + info sistem
 --  Warna diambil dari pywal (~/.cache/wal/colors) agar senada dengan wallpaper.
 -- ============================================================================
 require 'cairo'
 
 local HOME = os.getenv('HOME')
 local FONT = 'JetBrainsMono Nerd Font Mono'
+local BANNER = HOME .. '/.config/conky/anime-banner.png'
 
 -- --- warna dari pywal -------------------------------------------------------
 local function wal_colors()
@@ -19,7 +20,7 @@ local function wal_colors()
         f:close()
     end
     if #cols < 16 then -- fallback: palet wallpaper default
-        cols = {'0a040a','F3254A','9B6C6D','AD7F7F','8B847B','A69E94','D4BEB2','c1c0c1','665366','F3254A','9B6C6D','AD7F7F','8B847B','A69E94','D4BEB2','c1c0c1'}
+        cols = {'151c1d','B9A555','1F6DA2','5F6F96','9B7589','578DB9','5095C3','c4c6c6','5e7073','B9A555','1F6DA2','5F6F96','9B7589','578DB9','5095C3','c4c6c6'}
     end
     return cols
 end
@@ -35,14 +36,20 @@ local function rgba(h, a)
     }
 end
 
+local function lerp(c1, c2, t)
+    return { c1[1] + (c2[1] - c1[1]) * t, c1[2] + (c2[2] - c1[2]) * t,
+             c1[3] + (c2[3] - c1[3]) * t, 1.0 }
+end
+
 -- warna-warna tema
 local BG   = rgba(C[1], 0.82) -- latar kartu (gelap, semi-transparan)
 local BORD = rgba(C[2], 0.60) -- garis tepi (aksen)
 local ACC  = rgba(C[2], 1.00) -- aksen utama
 local ACCS = rgba(C[2], 0.50) -- aksen lembut (divider, footer)
-local FG   = rgba(C[7], 1.00) -- teks utama
-local SUB  = rgba(C[6], 0.88) -- teks sekunder
-local TRK  = rgba(C[1], 0.55) -- track bar
+local FGL  = rgba(C[7], 1.00) -- teks utama
+local SUB  = rgba(C[6], 0.90) -- teks sekunder
+local TRK  = rgba(C[1], 0.60) -- track bar
+local WHITE = {1, 1, 1, 1}
 
 -- --- helper cairo -----------------------------------------------------------
 local function round_rect(cr, x, y, w, h, r)
@@ -77,18 +84,62 @@ local function hline(cr, x1, x2, y, col)
     cairo_stroke(cr)
 end
 
+-- bar dengan gradasi aksen + highlight atas
 local function bar(cr, x, y, w, h, pct, col)
     pct = math.max(0, math.min(100, pct or 0))
     local r = h / 2
+    -- track
     round_rect(cr, x, y, w, h, r)
     cairo_set_source_rgba(cr, TRK[1], TRK[2], TRK[3], TRK[4])
     cairo_fill(cr)
     if pct > 1 then
         local fw = math.max(w * pct / 100, h)
+        local bright = lerp(col, WHITE, 0.35)
+        -- gradasi kiri→kanan: aksen → lebih terang
+        local pat = cairo_pattern_create_linear(x, 0, x + fw, 0)
+        cairo_pattern_add_color_stop_rgba(pat, 0.0, col[1], col[2], col[3], 0.95)
+        cairo_pattern_add_color_stop_rgba(pat, 1.0, bright[1], bright[2], bright[3], 0.95)
         round_rect(cr, x, y, fw, h, r)
-        cairo_set_source_rgba(cr, col[1], col[2], col[3], col[4])
+        cairo_set_source(cr, pat)
+        cairo_fill(cr)
+        cairo_pattern_destroy(pat)
+        -- highlight tipis di atas bar
+        round_rect(cr, x, y, fw, math.max(2, h * 0.35), r)
+        cairo_set_source_rgba(cr, 1, 1, 1, 0.28)
         cairo_fill(cr)
     end
+end
+
+-- banner anime (crop wallpaper) di bagian atas kartu
+local function draw_banner(cr, W, BH)
+    local surf = cairo_image_surface_create_from_png(BANNER)
+    if surf == nil or cairo_image_surface_get_width(surf) == 0 then
+        return
+    end
+    local bw = cairo_image_surface_get_width(surf)
+    local bh = cairo_image_surface_get_height(surf)
+    cairo_save(cr)
+    -- clip ke bentuk kartu (agar sudut atas membulat)
+    round_rect(cr, 0, 0, W, BH, 26)
+    cairo_clip(cr)
+    cairo_scale(cr, W / bw, BH / bh)
+    cairo_set_source_surface(cr, surf, 0, 0)
+    cairo_paint(cr)
+    cairo_restore(cr)
+    cairo_surface_destroy(surf)
+
+    -- gradasi gelap di bawah banner agar menyatu dengan body kartu
+    local pat = cairo_pattern_create_linear(0, BH - 70, 0, BH)
+    cairo_pattern_add_color_stop_rgba(pat, 0.0, BG[1], BG[2], BG[3], 0.0)
+    cairo_pattern_add_color_stop_rgba(pat, 1.0, BG[1], BG[2], BG[3], 1.0)
+    cairo_save(cr)
+    round_rect(cr, 0, 0, W, BH, 26)
+    cairo_clip(cr)
+    cairo_rectangle(cr, 0, BH - 70, W, 70)
+    cairo_set_source(cr, pat)
+    cairo_fill(cr)
+    cairo_restore(cr)
+    cairo_pattern_destroy(pat)
 end
 
 -- --- draw utama -------------------------------------------------------------
@@ -106,60 +157,59 @@ function conky_draw_card()
 
     local W = conky_window.width
     local H = conky_window.height
-    local XL = 26            -- tepi kiri teks
-    local XR = W - 26        -- tepi kanan teks
+    local XL = 26
+    local XR = W - 26
 
     -- 1) kartu glass
     round_rect(cr, 0, 0, W, H, 26)
     cairo_set_source_rgba(cr, BG[1], BG[2], BG[3], BG[4])
     cairo_fill(cr)
-    round_rect(cr, 0.75, 0.75, W - 1.5, H - 1.5, 25)
-    cairo_set_source_rgba(cr, BORD[1], BORD[2], BORD[3], BORD[4])
-    cairo_set_line_width(cr, 1.5)
-    cairo_stroke(cr)
 
-    -- 2) header
+    -- 2) banner anime (top)
+    draw_banner(cr, W, 120)
+
+    -- 3) header
     cairo_set_source_rgba(cr, ACC[1], ACC[2], ACC[3], ACC[4])
-    cairo_arc(cr, XL + 4, 34, 4, 0, 2 * math.pi)
+    cairo_arc(cr, XL + 4, 143, 4, 0, 2 * math.pi)
     cairo_fill(cr)
-    text(cr, 'S Y S T E M   M O N I T O R', XL + 16, 39, 11, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
+    text(cr, 'S Y S T E M   M O N I T O R', XL + 16, 148, 11, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
 
-    -- 3) jam besar + tanggal
-    text(cr, conky_parse('${time %H:%M}'), XL, 100, 46, CAIRO_FONT_WEIGHT_BOLD, FG, 'left')
-    text(cr, conky_parse('${time %S}'), XR, 82, 15, CAIRO_FONT_WEIGHT_BOLD, ACC, 'right')
-    text(cr, conky_parse('${time %A}'), XR, 104, 13, CAIRO_FONT_WEIGHT_BOLD, FG, 'right')
-    text(cr, conky_parse('${time %d %B %Y}'), XR, 121, 10.5, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'right')
+    -- 4) jam besar + tanggal
+    text(cr, conky_parse('${time %H:%M}'), XL, 196, 46, CAIRO_FONT_WEIGHT_BOLD, FGL, 'left')
+    text(cr, conky_parse('${time %S}'), XR, 178, 15, CAIRO_FONT_WEIGHT_BOLD, ACC, 'right')
+    text(cr, conky_parse('${time %A}'), XR, 200, 13, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    text(cr, conky_parse('${time %d %B %Y}'), XR, 217, 10.5, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'right')
 
-    -- 4) divider
-    hline(cr, XL, XR, 140, ACCS)
+    -- 5) divider
+    hline(cr, XL, XR, 236, ACCS)
 
-    -- 5) CPU / RAM / DISK
+    -- 6) CPU / RAM / DISK
     local cpu = tonumber(conky_parse('${cpu cpu0}')) or 0
     local ram = tonumber(conky_parse('${memperc}')) or 0
     local dsk = tonumber(conky_parse('${fs_used_perc /}')) or 0
 
-    text(cr, '\u{F2DB}', XL, 168, 13, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
-    text(cr, 'CPU', XL + 20, 169, 11, CAIRO_FONT_WEIGHT_BOLD, FG, 'left')
-    text(cr, string.format('%.0f%%', cpu), XR, 169, 12, CAIRO_FONT_WEIGHT_BOLD, FG, 'right')
-    bar(cr, XL, 178, XR - XL, 6, cpu, ACC)
+    text(cr, '\u{F2DB}', XL, 266, 13, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
+    text(cr, 'CPU', XL + 20, 267, 11, CAIRO_FONT_WEIGHT_BOLD, FGL, 'left')
+    text(cr, string.format('%.0f%%', cpu), XR, 267, 12, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    bar(cr, XL, 276, XR - XL, 6, cpu, ACC)
 
-    text(cr, '\u{F538}', XL, 208, 13, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
-    text(cr, 'RAM', XL + 20, 209, 11, CAIRO_FONT_WEIGHT_BOLD, FG, 'left')
-    text(cr, string.format('%.0f%%', ram), XR, 209, 12, CAIRO_FONT_WEIGHT_BOLD, FG, 'right')
-    bar(cr, XL, 218, XR - XL, 6, ram, ACC)
+    text(cr, '\u{F538}', XL, 306, 13, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
+    text(cr, 'RAM', XL + 20, 307, 11, CAIRO_FONT_WEIGHT_BOLD, FGL, 'left')
+    text(cr, string.format('%.0f%%', ram), XR, 307, 12, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    bar(cr, XL, 316, XR - XL, 6, ram, ACC)
 
-    text(cr, '\u{F0A0}', XL, 248, 13, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
-    text(cr, 'DISK', XL + 20, 249, 11, CAIRO_FONT_WEIGHT_BOLD, FG, 'left')
-    text(cr, string.format('%.0f%%', dsk), XR, 249, 12, CAIRO_FONT_WEIGHT_BOLD, FG, 'right')
-    bar(cr, XL, 258, XR - XL, 6, dsk, ACC)
+    text(cr, '\u{F0A0}', XL, 346, 13, CAIRO_FONT_WEIGHT_BOLD, ACC, 'left')
+    text(cr, 'DISK', XL + 20, 347, 11, CAIRO_FONT_WEIGHT_BOLD, FGL, 'left')
+    text(cr, string.format('%.0f%%', dsk), XR, 347, 12, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    bar(cr, XL, 356, XR - XL, 6, dsk, ACC)
 
-    -- 6) divider
-    hline(cr, XL, XR, 286, ACCS)
+    -- 7) divider
+    hline(cr, XL, XR, 384, ACCS)
 
-    -- 7) info baris
+    -- 8) info baris
     local function row(label, value, y)
         text(cr, label, XL, y, 10.5, CAIRO_FONT_WEIGHT_BOLD, SUB, 'left')
-        text(cr, value, XR, y, 11, CAIRO_FONT_WEIGHT_NORMAL, FG, 'right')
+        text(cr, value, XR, y, 11, CAIRO_FONT_WEIGHT_NORMAL, FGL, 'right')
     end
 
     local temp = conky_parse("${execpi 60 sensors | awk '/Package id 0:/ {print $4}'}")
@@ -169,14 +219,20 @@ function conky_draw_card()
     local topcpu  = conky_parse('${top cpu 1}')
     if topname == '' or topname == nil then topname = '—' end
 
-    row('UPTIME', conky_parse('${uptime}'), 316)
-    row('PROCESSES', conky_parse('${running_processes}') .. ' / ' .. conky_parse('${processes}'), 341)
-    row('TEMP', temp, 366)
-    row('TOP  CPU', topname .. '  ' .. topcpu .. '%', 391)
+    row('UPTIME', conky_parse('${uptime}'), 412)
+    row('PROCESSES', conky_parse('${running_processes}') .. ' / ' .. conky_parse('${processes}'), 437)
+    row('TEMP', temp, 462)
+    row('TOP  CPU', topname .. '  ' .. topcpu .. '%', 487)
 
-    -- 8) footer
-    text(cr, '✦  A N I M E   G L A S S  ✦', W / 2, 430, 9.5, CAIRO_FONT_WEIGHT_BOLD, ACCS, 'center')
-    text(cr, conky_parse('${time %Z}'), W / 2, 448, 8.5, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'center')
+    -- 9) footer
+    text(cr, '✦  A N I M E   G L A S S  ✦', W / 2, 522, 9.5, CAIRO_FONT_WEIGHT_BOLD, ACCS, 'center')
+    text(cr, conky_parse('${time %Z}'), W / 2, 539, 8.5, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'center')
+
+    -- border kartu (di atas banner, tipis)
+    round_rect(cr, 0.75, 0.75, W - 1.5, H - 1.5, 25)
+    cairo_set_source_rgba(cr, BORD[1], BORD[2], BORD[3], BORD[4])
+    cairo_set_line_width(cr, 1.5)
+    cairo_stroke(cr)
 
     cairo_destroy(cr)
     cairo_surface_destroy(cs)

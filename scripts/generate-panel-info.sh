@@ -100,7 +100,10 @@ EOF
 fi
 pkill -f anime-glass.conf 2>/dev/null || true
 sleep 1
-if conky -c "$CONKY_CONF" -d -o /tmp/conky-anime-glass.log 2>/dev/null; then
+# tanpa -d/-o: conky di-daemonize sendiri oleh config (background=true)
+nohup conky -c "$CONKY_CONF" >/tmp/conky-anime-glass.log 2>&1 &
+sleep 2
+if pgrep -f anime-glass.conf >/dev/null 2>&1; then
     echo "[ok] Conky anime-glass berjalan (kiri-tengah desktop, warna ikut wallpaper)."
 else
     echo "[peringatan] Conky gagal start — cek /tmp/conky-anime-glass.log"

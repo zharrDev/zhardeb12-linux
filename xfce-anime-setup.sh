@@ -346,10 +346,13 @@ EOF
 msg "Autostart conky -> $AUTOSTART_DIR/conky-anime-glass.desktop"
 pkill -f anime-glass.conf 2>/dev/null || true
 sleep 1
-if conky -c "$CFG_DIR/conky/anime-glass.conf" -d -o /tmp/conky-anime-glass.log 2>/dev/null; then
+# tanpa -d/-o: conky di-daemonize sendiri oleh config (background=true)
+nohup conky -c "$CFG_DIR/conky/anime-glass.conf" >/tmp/conky-anime-glass.log 2>&1 &
+sleep 2
+if pgrep -f anime-glass.conf >/dev/null 2>&1; then
     msg "Conky berjalan. Info sistem muncul di kiri-tengah desktop."
 else
-    warn "Conky gagal start — jalankan manual: conky -c ~/.config/conky/anime-glass.conf"
+    warn "Conky gagal start — cek /tmp/conky-anime-glass.log"
 fi
 
 # ================= 10. Selesai =================

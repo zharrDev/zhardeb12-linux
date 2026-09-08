@@ -58,6 +58,12 @@ for key in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep 'last-image' ||
 done
 msg "Wallpaper diterapkan ke desktop."
 
+# 3b) Banner untuk widget conky anime-glass (crop atas dari gambar asli)
+mkdir -p "$CFG_DIR/conky"
+convert "$IMG" -resize 400x130^ -gravity North -extent 400x130 "$CFG_DIR/conky/anime-banner.png" 2>/dev/null \
+    && msg "Banner conky -> $CFG_DIR/conky/anime-banner.png" \
+    || warn "Gagal membuat banner conky."
+
 # 4) Pywal: samakan warna seluruh UI dengan warna dominan wallpaper
 if [ -x "$WAL_BIN" ]; then
     msg "Menjalankan pywal (wal) agar warna UI mengikuti wallpaper..."
@@ -162,9 +168,9 @@ if os.path.exists(panel_xml):
                 else:
                     ET.SubElement(panel, "property", {"name": "background-style", "type": "uint", "value": "1"})
                 # set background-color (RGBA double) dari color0 wallpaper
-                bg_arr = panel.find("property[@name='background-color']")
+                bg_arr = panel.find("property[@name='background-rgba']")
                 if bg_arr is None:
-                    bg_arr = ET.SubElement(panel, "property", {"name": "background-color", "type": "array"})
+                    bg_arr = ET.SubElement(panel, "property", {"name": "background-rgba", "type": "array"})
                 vals = bg_arr.findall("value")
                 rgb = hex_to_rgb(bg)
                 new_vals = [f"{v/255:.6f}" for v in rgb] + ["0.72"]
@@ -180,14 +186,32 @@ if os.path.exists(panel_xml):
     except Exception as e:
         print(f"  [abaikan] panel tidak diubah: {e}")
 PY
-        # Restart panel agar warna baru tampil
-        if [ -f "$PANEL_XML" ]; then
-            xfce4-panel --restart 2>/dev/null || pkill -x xfce4-panel 2>/dev/null || true
+
+        # Panel: terapkan warna latar via xfconf-query (andal; edit XML saja
+        # kadang tidak sampai ke xfconfd) lalu restart panel
+        if command -v xfconf-query >/dev/null 2>&1; then
+            PANEL_BG="$(sed -n '1p' "$COLORS_FILE" 2>/dev/null || echo '#363815')"
+            eval "$(python3 - "$PANEL_BG" <<'PY2'
+import sys
+h = sys.argv[1].lstrip('#')
+r, g, b = (int(h[i:i+2], 16)/255 for i in (0, 2, 4))
+print(f"PANEL_R={r:.6f} PANEL_G={g:.6f} PANEL_B={b:.6f}")
+PY2
+)"
+            for PN in $(LC_NUMERIC=C xfconf-query -c xfce4-panel -p /panels -v 2>/dev/null | grep -Eo 'panel-[0-9]+' | sort -u); do
+                LC_NUMERIC=C xfconf-query -c xfce4-panel -p "/panels/$PN/background-style" -s 1 2>/dev/null || true
+                LC_NUMERIC=C xfconf-query -c xfce4-panel -p "/panels/$PN/background-rgba" \
+                    -t double -s "$PANEL_R" -t double -s "$PANEL_G" -t double -s "$PANEL_B" -t double -s 0.72 2>/dev/null || true
+            done
+            echo "  panel xfce4     : latar panel mengikuti wallpaper (xfconf)"
+            pkill -x xfce4-panel 2>/dev/null || true
+            sleep 1
+            nohup xfce4-panel >/dev/null 2>&1 &
             msg "Panel di-restart untuk memakai warna baru."
         fi
 
         # Teks ikon desktop mengikuti foreground wallpaper
-        fg_hex="$(sed -n '8p' "$HOME/.cache/wal/colors" 2>/dev/null || echo cdD6F4)"
+        fg_hex="$(sed -n '8p' "$HOME/.cache/wal/colors" 2>/dev/null | tr -d '#' || echo cdD6F4)"
         # konversi hex -> rgb desimal
         r=$((16#${fg_hex:0:2})); g=$((16#${fg_hex:2:2})); b=$((16#${fg_hex:4:2}))
         xfconf-query -c xfce4-desktop -p /desktop-icons/font-color \
@@ -204,12 +228,15 @@ PY
         fi
 
         # conky (anime-glass): restart agar warna kartu mengikuti wallpaper baru
+        # (tanpa -d/-o: conky di-daemonize oleh config background=true sendiri)
         if [ -f "$CFG_DIR/conky/anime-glass.conf" ]; then
             pkill -f anime-glass.conf 2>/dev/null || true
             sleep 1
-            conky -c "$CFG_DIR/conky/anime-glass.conf" -d -o /tmp/conky-anime-glass.log 2>/dev/null \
+            nohup conky -c "$CFG_DIR/conky/anime-glass.conf" >/tmp/conky-anime-glass.log 2>&1 &
+            sleep 2
+            pgrep -f anime-glass.conf >/dev/null 2>&1 \
                 && msg "Conky di-restart dengan warna baru." \
-                || warn "Conky gagal restart."
+                || warn "Conky gagal restart — cek /tmp/conky-anime-glass.log"
         fi
     else
         warn "Hasil pywal tidak ditemukan di ~/.cache/wal/colors"

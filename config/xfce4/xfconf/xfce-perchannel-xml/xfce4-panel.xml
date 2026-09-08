@@ -11,13 +11,13 @@
       <property name="mode" type="uint" value="0"/>
       <property name="length-adjust" type="bool" value="true"/>
       <property name="autohide-behavior" type="uint" value="0"/>
-      <property name="icon-size" type="uint" value="16"/>
+      <property name="icon-size" type="uint" value="18"/>
       <property name="background-style" type="uint" value="1"/>
       <property name="background-rgba" type="array">
-        <value type="double" value="0.117647"/>
-        <value type="double" value="0.117647"/>
-        <value type="double" value="0.180392"/>
-        <value type="double" value="0.78000000000000003"/>
+        <value type="double" value="0.21176500000000001"/>
+        <value type="double" value="0.219608"/>
+        <value type="double" value="0.082352999999999996"/>
+        <value type="double" value="0.71999999999999997"/>
       </property>
       <property name="plugin-ids" type="array">
         <value type="int" value="1"/>
@@ -89,6 +89,10 @@
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
       <property name="known-legacy-items" type="array">
+        <value type="string" value="wi-fi network connection “syntax23 2” active: syntax23 (76%)"/>
+        <value type="string" value="wi-fi network connection “syntax23 2” active: syntax23 (77%)"/>
+        <value type="string" value="wi-fi network connection “syntax23 2” active: syntax23 (79%)"/>
+        <value type="string" value="wi-fi network connection “syntax23 2” active: syntax23 (78%)"/>
         <value type="string" value="ulauncher"/>
         <value type="string" value="wi-fi network connection “syntax23 2” active: syntax23 (84%)"/>
         <value type="string" value="wi-fi network connection “syntax23 2” active: syntax23 (81%)"/>

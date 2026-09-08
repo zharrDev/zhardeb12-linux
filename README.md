@@ -125,15 +125,19 @@ Panel di-setup oleh `xfce-anime-setup.sh --apply-panel` (atau
 ## 🪟 Widget Info Desktop — Conky “Anime Glass” (kiri-tengah)
 
 Kartu glass elegan di **kiri-tengah layar** berisi:
+- **Banner anime** di bagian atas (crop dari wallpaper aktif — gambar dari
+  `asset/`), menyatu dengan kartu via gradasi gelap
 - Jam besar (HH:MM + detik), hari, tanggal, bulan, tahun
-- Bar **CPU**, **RAM**, **DISK** (dengan ikon Nerd Font)
+- Bar **CPU**, **RAM**, **DISK** bergradasi (dengan ikon Nerd Font)
 - Uptime, jumlah proses, suhu CPU, proses teratas
 
 File: `config/conky/anime-glass.conf` + `config/conky/anime-glass.lua`
 (terpasang ke `~/.config/conky/`, autostart via `conky-anime-glass.desktop`).
+Banner: `~/.config/conky/anime-banner.png` (di-generate otomatis oleh
+`update-wallpaper.sh` setiap ganti wallpaper).
 
 **Warna otomatis mengikuti wallpaper**: conky membaca `~/.cache/wal/colors`
-(hasil pywal). Ganti wallpaper → warna kartu ikut berubah:
+(hasil pywal). Ganti wallpaper → warna kartu + banner ikut berubah:
 ```bash
 ./update-wallpaper.sh /path/ke/gambar-anime.jpg
 ```
