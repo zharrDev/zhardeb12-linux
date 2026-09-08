@@ -102,7 +102,8 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
     msg "Memasang dependensi..."
     apt_install xfce4-terminal xfce4-settings xfconf xfwm4 xfce4-panel xfce4-panel-plugin XRDesktop \
         picom git curl unzip fonts-inter fonts-cantarell xdg-utils xdg-user-dirs \
-        python3-pip xdg-utils xfce4-settings xfce4-appfinder
+        python3-pip xdg-utils xfce4-settings xfce4-appfinder \
+        conky lm-sensors xfce4-sensors-plugin
 
     # --- Compositor: picom (lebih ringan dari xfwm4 paint) ---
     apt_install "$PICOM_PKG"
@@ -327,7 +328,31 @@ if [ "$WITH_PYWAL" -eq 1 ]; then
     msg "Pywal siap. Ganti wallpaper kapan saja:  ./update-wallpaper.sh /path/ke/gambar-anime.jpg"
 fi
 
-# ================= 9. Selesai =================
+# ================= 9. Conky widget (info sistem di desktop) =================
+# Kartu glass elegan di kiri-tengah layar: jam, tanggal, CPU, RAM, DISK, uptime.
+# Warna otomatis mengikuti wallpaper (membaca ~/.cache/wal/colors dari pywal).
+msg "Memasang Conky widget (anime-glass)..."
+mkdir -p "$CFG_DIR/conky"
+install_file "$SRC_DIR/config/conky/anime-glass.conf" "$CFG_DIR/conky/anime-glass.conf"
+install_file "$SRC_DIR/config/conky/anime-glass.lua"  "$CFG_DIR/conky/anime-glass.lua"
+cat > "$AUTOSTART_DIR/conky-anime-glass.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Conky Anime Glass
+Comment=Widget info sistem (CPU, RAM, jam, tanggal) — kiri tengah desktop
+Exec=sh -c "sleep 3 && conky -c $HOME/.config/conky/anime-glass.conf"
+X-GNOME-Autostart-enabled=true
+EOF
+msg "Autostart conky -> $AUTOSTART_DIR/conky-anime-glass.desktop"
+pkill -f anime-glass.conf 2>/dev/null || true
+sleep 1
+if conky -c "$CFG_DIR/conky/anime-glass.conf" -d -o /tmp/conky-anime-glass.log 2>/dev/null; then
+    msg "Conky berjalan. Info sistem muncul di kiri-tengah desktop."
+else
+    warn "Conky gagal start — jalankan manual: conky -c ~/.config/conky/anime-glass.conf"
+fi
+
+# ================= 10. Selesai =================
 echo
 msg "======================================================="
 msg "Setup selesai!"

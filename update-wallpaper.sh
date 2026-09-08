@@ -202,6 +202,15 @@ PY
             fi
             msg "Kitty: warna otomatis dari pywal aktif."
         fi
+
+        # conky (anime-glass): restart agar warna kartu mengikuti wallpaper baru
+        if [ -f "$CFG_DIR/conky/anime-glass.conf" ]; then
+            pkill -f anime-glass.conf 2>/dev/null || true
+            sleep 1
+            conky -c "$CFG_DIR/conky/anime-glass.conf" -d -o /tmp/conky-anime-glass.log 2>/dev/null \
+                && msg "Conky di-restart dengan warna baru." \
+                || warn "Conky gagal restart."
+        fi
     else
         warn "Hasil pywal tidak ditemukan di ~/.cache/wal/colors"
     fi

@@ -1,122 +1,112 @@
 #!/usr/bin/env bash
 #
-# generate-panel-info.sh — tambah plugin informasi (jam, tanggal, CPU, RAM, cuaca)
-# ke panel XFCE floating (pill-shaped, transparan, blur).
+# generate-panel-info.sh — terapkan layout panel XFCE pill + widget info Conky.
 #
 # Cara pakai (setelah login & panel berjalan):
 #   bash generate-panel-info.sh
 #
 # Apa yang dilakukan:
-#   - Menambahkan plugin-panel:
-#       • clock          → jam + tanggal (format: "Hari, DD Mon YYYY | HH:MM")
-#       • xfce4-sensors → CPU%, RAM usage, suhu (info sistem)
-#       • weather       → cuaca daerah (opsional)
-#   - Mengatur posisi plugin di panel (kiri = info, kanan = menu/systray/actions).
-#   - Me-restart panel agar plugin muncul.
+#   1. Menata ulang panel XFCE menjadi pill (rounded, semi-transparan, blur):
+#        showdesktop | applicationsmenu | tasklist | separator |
+#        systray | pulseaudio | power-manager-plugin | separator |
+#        clock (Hari, Tgl Bulan Tahun | Jam) | separator | actions
+#      - Memakai nama plugin yang BENAR (id = nama file .desktop), jadi
+#        tidak ada lagi error "Plugin ... was not found" / notif gagal.
+#      - Panjang panel 560px, posisi floating di tengah-atas.
+#   2. Memasang & menjalankan widget Conky "anime-glass" (info CPU, RAM,
+#      DISK, uptime, jam, tanggal) di kiri-tengah desktop. Warnanya otomatis
+#      mengikuti wallpaper via pywal (~/.cache/wal/colors).
 #
 # Catatan:
-#   - Plugin yang ditambahkan: clock, xfce4-sensors, weather.
-#   - Informasi CPU/RAM muncul dari xfce4-sensors-plugin (sudah terpasang).
-#   - Jam & tanggal muncul dari plugin clock.
-#   - Cuaca muncul dari plugin weather (opsional).
-#   - Panel pill-shaped (rounded) karena corner-radius=14 di picom.conf.
-#   - Panel semi-transparan (rgba(30,30,46,0.78)) — warna diatur oleh pywal.
-#
-# Plugin yang tersedia di sistem (diperiksa dari /usr/share/xfce4/panel/plugins):
+#   - Info sistem (CPU/RAM/dll) TIDAK lagi dipasang di panel lewat plugin
+#     sensors/weather; itu digantikan widget Conky di desktop agar panel
+#     tetap bersih & tidak rawan error.
+#   - Warna panel mengikuti wallpaper lewat update-wallpaper.sh (pywal).
 #
 set -euo pipefail
+export LC_NUMERIC=C   # hindari bug desimal koma (id_ID) di xfconf
 
-PANEL_NAME="xfce4-panel"
+PANEL="xfce4-panel"
+HOME_C="${HOME:-$HOME}"
 
-# --- 1. Pastikan panel berjalan & kita punya hak akses ke xfconf ---
-xfce4-panel --help >/dev/null 2>&1 || { echo "[peringatan] panel tidak berjalan."; exit 0; }
+# --- 0. Pastikan panel terpasang ---
+command -v xfce4-panel >/dev/null 2>&1 || { echo "[gagal] xfce4-panel tidak terpasang."; exit 1; }
+command -v xfconf-query >/dev/null 2>&1 || { echo "[gagal] xfconf-query tidak terpasang."; exit 1; }
 
-# --- 2. Tentukan urutan plugin yang diinginkan ---
-# Urutan kiri→kanan di panel:
-#   showdesktop | separator | applicationsmenu | separator | clock | separator |
-#   xfce4-sensors | separator | weather | separator | systray | separator |
-#   tasklist | separator | actions
-#
-# ID plugin yang sudah ada di panel saat ini akan dipertahankan.
-# Plugin baru akan dimasukkan dengan ID baru yang belum dipakai.
-#
-# NOTE: xfconf-query -c xfce4-panel -p /plugins/plugin-X -s value
-#       akan menambah/mengganti plugin pada ID X. Sebaiknya kita sanggupkan
-#       ID baru yang belum dipakai.
-
-declare -a WANTED=(
-    "clock"
-    "xfce4-sensors"
-    "weather"
-)
-
-# --- 3. Ambil daftar plugin ID yang sedang dipakai ---
-CURRENT_IDS=$(xfconf-query -c "$PANEL_NAME" -p "/panels/panel-1/plugin-ids" \
-    -t int 2>/dev/null | tr ',' ' ' | tr -d '[]' || true)
-
-echo "Plugin IDs saat ini: $CURRENT_IDS"
-
-# --- 4. Tentukan ID baru untuk tiap plugin yang ingin ditambahkan ---
-next_id=1
-for id in $CURRENT_IDS; do
-    if [ "$id" -gt "$next_id" ]; then
-        break
-    fi
-    next_id=$((id + 1))
+# --- 1. Reset & set plugin panel (id = nama file .desktop yang benar) ---
+# PENTING: properti 'length' xfce4-panel adalah PERSEN (1-100) dari lebar layar,
+# BUKAN piksel. Nilai >100 (mis. 480/560) akan memicu warning "invalid or out
+# of range" dan membuat panel tampil aneh. Pakai length=100 untuk full-width.
+# posisi p=11 = TOP (full-width, "mentok ke atas"), p=9 = top-center, p=0 = floating.
+for n in $(seq 1 14); do
+    xfconf-query -c "$PANEL" -p "/plugins/plugin-$n" -r 2>/dev/null || true
 done
 
-declare -A PLUGIN_ID_MAP
-for plugin in "${WANTED[@]}"; do
-    if ! echo "$CURRENT_IDS" | grep -qw "$plugin"; then
-        PLUGIN_ID_MAP["$plugin"]=$next_id
-        next_id=$((next_id + 1))
-        echo "Plugin baru: $plugin → ID ${PLUGIN_ID_MAP[$plugin]}"
-    else
-        echo "Plugin $plugin sudah ada di panel."
-    fi
-done
+set_plugin() {  # set_plugin <id> <nama>
+    xfconf-query -c "$PANEL" -p "/plugins/plugin-$1" --create -t string -s "$2"
+}
 
-# --- 5. Set plugin baru ke panel (via xfconf-query) ---
-for plugin in "${WANTED[@]}"; do
-    if [ -n "${PLUGIN_ID_MAP[$plugin]+_}" ]; then
-        id="${PLUGIN_ID_MAP[$plugin]}"
-        xfconf-query -c "$PANEL_NAME" -p "/plugins/plugin-$id" \
-            -s "$plugin" -t string 2>/dev/null || \
-            echo "[peringatan] gagal men-set plugin $plugin"
-    fi
-done
+set_plugin 1  showdesktop
+set_plugin 2  applicationsmenu
+set_plugin 3  tasklist
+set_plugin 4  separator
+set_plugin 5  systray
+set_plugin 6  pulseaudio
+set_plugin 7  power-manager-plugin
+set_plugin 8  separator
+set_plugin 9  clock
+set_plugin 10 separator
+set_plugin 11 actions
 
-# --- 6. Atur properti khusus (untuk clock, sensors, weather) ---
-# Clock: format tanggal & jam yang elegan (contoh: "Sen, 23 Feb 2026 | 14:30")
-for id in "${!PLUGIN_ID_MAP[@]}"; do
-    id_val="${PLUGIN_ID_MAP[$id]}"
-    case "$id_val" in
-        clock)
-            # Mengatur format clock (jika properti tersedia)
-            xfconf-query -c "$PANEL_NAME" -p "/plugins/plugin-$id_val/format" \
-                -s "%a, %d %b %Y  |  %H:%M" -t string 2>/dev/null || true
-            ;;
-        xfce4-sensors)
-            # Tidak ada properti khusus yang wajib diatur; plugin sudah menampilkan
-            # CPU, RAM, suhu secara default.
-            ;;
-        weather)
-            # Weather mungkin perlu konfigurasi lokasi. Biarkan default untuk saat ini.
-            ;;
-    esac
-done
+# format jam & tanggal di panel
+xfconf-query -c "$PANEL" -p /plugins/plugin-9/digital-format --create -t string -s "%a, %d %b %Y  |  %H:%M" 2>/dev/null || true
+xfconf-query -c "$PANEL" -p /plugins/plugin-9/tooltip-format --create -t string -s "%A, %d %B %Y" 2>/dev/null || true
+xfconf-query -c "$PANEL" -p /plugins/plugin-9/mode --create -t uint -s 2 2>/dev/null || true
 
-# --- 7. Restart panel ---
-xfce4-panel --restart 2>/dev/null || pkill -x xfce4-panel 2>/dev/null || true
-echo "Panel di-restart. Plugin info (clock, sensors, weather) akan muncul."
+# urutan plugin & panjang panel (pill)
+xfconf-query -c "$PANEL" -p /panels/panel-1/plugin-ids \
+    -t int -s 1 -t int -s 2 -t int -s 3 -t int -s 4 -t int -s 5 \
+    -t int -s 6 -t int -s 7 -t int -s 8 -t int -s 9 -t int -s 10 -t int -s 11
+xfconf-query -c "$PANEL" -p /panels/panel-1/length -s 100 2>/dev/null || true
+xfconf-query -c "$PANEL" -p /panels/panel-1/length-adjust -s true 2>/dev/null || true
+xfconf-query -c "$PANEL" -p /panels/panel-1/position -s "p=11;x=0;y=0" 2>/dev/null || true
+xfconf-query -c "$PANEL" -p /panels/panel-1/position-locked -s true 2>/dev/null || true
+xfconf-query -c "$PANEL" -p /panels/panel-1/size -s 44 2>/dev/null || true
 
-# --- 8. Catatan tambahan ---
+# --- 2. Restart panel ---
+pkill -x xfce4-panel 2>/dev/null || true
+sleep 1
+nohup xfce4-panel >/dev/null 2>&1 &
+sleep 2
+pgrep -x xfce4-panel >/dev/null && echo "[ok] Panel XFCE berjalan (full-width di atas, transparan + blur, sudut pill)." \
+    || echo "[peringatan] Panel tidak terdeteksi — coba: xfce4-panel &"
+
+# --- 3. Widget Conky anime-glass (info sistem di kiri-tengah desktop) ---
+CONKY_CONF="$HOME/.config/conky/anime-glass.conf"
+CONKY_LUA="$HOME/.config/conky/anime-glass.lua"
+if [ ! -f "$CONKY_CONF" ]; then
+    SRC="$(cd "$(dirname "$0")/.." && pwd)"
+    mkdir -p "$HOME/.config/conky" "$HOME/.config/autostart"
+    cp -f "$SRC/config/conky/anime-glass.conf" "$CONKY_CONF"
+    cp -f "$SRC/config/conky/anime-glass.lua"  "$CONKY_LUA"
+    cat > "$HOME/.config/autostart/conky-anime-glass.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Conky Anime Glass
+Comment=Widget info sistem (CPU, RAM, jam, tanggal) — kiri tengah desktop
+Exec=sh -c "sleep 3 && conky -c $HOME/.config/conky/anime-glass.conf"
+X-GNOME-Autostart-enabled=true
+EOF
+fi
+pkill -f anime-glass.conf 2>/dev/null || true
+sleep 1
+if conky -c "$CONKY_CONF" -d -o /tmp/conky-anime-glass.log 2>/dev/null; then
+    echo "[ok] Conky anime-glass berjalan (kiri-tengah desktop, warna ikut wallpaper)."
+else
+    echo "[peringatan] Conky gagal start — cek /tmp/conky-anime-glass.log"
+fi
+
 echo ""
-echo "Catatan:"
-echo "  • Clock muncul di panel dengan format tanggal & jam."
-echo "  • CPU & RAM muncul dari xfce4-sensors-plugin."
-echo "  • Cuaca dari weather-plugin (opsional)."
-echo "  • Panel semi-transparan (rgba(30,30,46,0.78)) — warna diatur oleh pywal."
-echo "  • Panel pill-shaped (rounded) — corner-radius=14 di picom.conf."
-echo ""
-echo "Jika plugin tidak muncul, buka Panel Preferences → Add → pilih plugin yang diinginkan."
+echo "Selesai. Info CPU/RAM/jam/tanggal tampil di kiri-tengah desktop (conky),"
+echo "panel pill di atas berisi menu, tasklist, systray, jam & tombol actions."
+echo "Ganti warna mengikuti wallpaper:  ./update-wallpaper.sh /path/gambar.jpg"

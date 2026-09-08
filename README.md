@@ -88,35 +88,63 @@ xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 
 ---
 
-## 🖥 Panel Floating (atas, horizontal, transparan + blur)
+## 🖥 Panel Atas (full-width, horizontal, transparan + blur, sudut pill)
 
-Panel di-setup oleh `xfce-anime-setup.sh --apply-panel` menjadi:
-- **Posisi**: floating (mengambang) di tengah atas (`p=11;x=0;y=0`).
-  Panel **bisa digerakkan**: klik kanan → *Unlock Panel*, lalu klik & drag ke
-  posisi yang diinginkan, klik kanan → *Lock Panel* lagi bila sudah pas.
-- **Plugin yang tampil**: Show Desktop → Aplikasi Menu → Tasklist (jendela) →
-  separator → Systray (ikon sistem, battery/clock/icon lainnya yang terpasang)
-  → separator → Clock → separator → Actions (lock screen, logout, dll).
-- **Warna**: semi-transparan (RGBA `rgba(bg, 0.82)`), warna latar diupdate
+Panel di-setup oleh `xfce-anime-setup.sh --apply-panel` (atau
+`bash scripts/generate-panel-info.sh`) menjadi:
+- **Posisi**: **mentok di tepi atas** (`p=11` = TOP), **full-width**
+  (`length=100` = 100% lebar layar), terkunci. Sudut membulat halus (pill)
+  via picom `corner-radius`.
+- **Plugin yang tampil** (urutan kiri → kanan):
+  `showdesktop` → `applicationsmenu` → `tasklist` → separator → `systray`
+  (ikon sistem, battery, dll) → `pulseaudio` → `power-manager-plugin` →
+  separator → `clock` (format `Sen, 08 Sep 2026 | 14:30`) → separator →
+  `actions` (lock screen, logout, dll).
+- **Warna**: semi-transparan (RGBA `rgba(bg, 0.78)`), warna latar diupdate
   otomatis oleh pywal mengikuti warna dominan wallpaper.
 - **Blur & transparansi**: ditangani picom (lihat `picom.conf`).
 
-### Menambah Battery / CPU / Monitor ke panel (opsional)
+> ⚠️ **PENTING (kenapa panel dulu “gak muncul / notif failed”)**:
+> 1. Nama plugin yang salah — id plugin = nama file `.desktop`
+>    (mis. `xfce4-sensors-plugin`, `pulseaudio-plugin`, `power-manager-plugin`
+>    → salah satunya `xfce4-sensors` / `pulseaudio` / `power-manager-plugin`
+>    yang SALAH adalah `xfce4-sensors` tanpa `-plugin`). Plugin yang gagal
+>    otomatis dibuang panel → panel tampak kosong/gagal.
+> 2. Nilai `length` > 100 — properti `length` xfce4-panel adalah **persen**
+>    (rentang 1–100), bukan piksel. Nilai lama 480/520/560 memicu
+>    `invalid or out of range` dan panel menyusut tak terkendali.
+> 3. `LC_NUMERIC=id_ID` (desimal koma) membuat angka terlihat seperti
+>    `480,000000` — jalankan perintah dengan `export LC_NUMERIC=C`.
 
-Plugin **hardware sensors** dan **system load monitor** sudah terpasang di sistem
-tetapi tidak dimasukkan di panel XML (karena properti masing-masing bersifat
-spesifik). Tambahkan manual lewat GUI:
+> ℹ️ **Info sistem (CPU/RAM/dll) TIDAK lagi dipasang di panel** — digantikan
+> widget **Conky** di desktop (lihat bagian berikutnya) agar panel tetap bersih
+> dan tidak rawan error.
 
-1. Klik kanan panel → **Panel Preferences** → tab **Add** (atau *Add/Remove*).
-2. Pilih **Sensors** → tambahkan.
-3. Pilih **System Load Monitor** → tambahkan.
-4. Atur posisi plugin baru di panel (klik & drag).
+---
 
-⚠️ Jika tidak muncul di daftar *Add*, pastikan paket sudah terpasang:
+## 🪟 Widget Info Desktop — Conky “Anime Glass” (kiri-tengah)
+
+Kartu glass elegan di **kiri-tengah layar** berisi:
+- Jam besar (HH:MM + detik), hari, tanggal, bulan, tahun
+- Bar **CPU**, **RAM**, **DISK** (dengan ikon Nerd Font)
+- Uptime, jumlah proses, suhu CPU, proses teratas
+
+File: `config/conky/anime-glass.conf` + `config/conky/anime-glass.lua`
+(terpasang ke `~/.config/conky/`, autostart via `conky-anime-glass.desktop`).
+
+**Warna otomatis mengikuti wallpaper**: conky membaca `~/.cache/wal/colors`
+(hasil pywal). Ganti wallpaper → warna kartu ikut berubah:
 ```bash
-sudo apt install xfce4-sensors-plugin xfce4-systemload-plugin
-xfce4-panel --restart
+./update-wallpaper.sh /path/ke/gambar-anime.jpg
 ```
+
+Jalankan manual:
+```bash
+conky -c ~/.config/conky/anime-glass.conf
+```
+
+> 💡 Jika ingin widget dipindah: ubah `gap_x` / `gap_y` di
+> `~/.config/conky/anime-glass.conf` lalu restart conky.
 
 ---
 
@@ -233,6 +261,8 @@ konfigurasi shell `.bashrc`/`.zshrc` yang menautkan `wal`).
 ├── README.md                  # panduan ini
 ├── config/
 │   ├── picom/picom.conf       # konfigurasi glassmorphism ringan
+│   ├── conky/anime-glass.conf # widget info desktop (kiri-tengah)
+│   ├── conky/anime-glass.lua  # gambar kartu glass (warna dari pywal)
 │   ├── xfce4/terminal/terminalrc
 │   ├── xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 │   ├── gtk-3.0/settings.ini
@@ -247,8 +277,12 @@ konfigurasi shell `.bashrc`/`.zshrc` yang menautkan `wal`).
 
 - **Picom tidak berjalan**: cek driver GPU (glx/egl). Coba ganti backend di
   `picom.conf` jadi `backend = "egl";` atau `backend = "xrender";`.
-- **Panel tidak muncul / error**: restore dari `panel.xml.bak`, lalu
-  `xfce4-panel --restart`.
+- **Panel tidak muncul / error “plugin not found”**: biasanya karena nama
+  plugin salah. Nama plugin = nama file `.desktop` (misal `xfce4-sensors-plugin`,
+  bukan `xfce4-sensors`). Jalankan `bash scripts/generate-panel-info.sh` untuk
+  menata ulang panel dengan nama plugin yang benar, lalu `xfce4-panel --restart`.
+  (Catatan: karena `LC_NUMERIC=id_ID` (koma), panel bisa mengeluh soal nilai
+  `length` — tidak fatal; jalankan skrip dengan `export LC_NUMERIC=C`.)
 - **Warna terminal tidak berubah setelah pywal**: jalankan ulang
   `./update-wallpaper.sh /path/gambar.jpg` atau buka terminal baru.
 - **Tema Catppuccin / icon tidak apply**: logout → login, atau jalankan ulang
