@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Conky Anime Glass
+Comment=Widget info sistem (CPU, RAM, jam, tanggal) — kiri tengah desktop
+Exec=sh -c "sleep 3 && conky -c $HOME/.config/conky/anime-glass.conf"
+X-GNOME-Autostart-enabled=true

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Picom (compositor)
+Comment=Glassmorphism compositor ringan
+Exec=picom --daemon
+X-GNOME-Autostart-enabled=true

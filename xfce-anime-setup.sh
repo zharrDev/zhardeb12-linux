@@ -324,7 +324,21 @@ set_xfconf xfwm4 /general/title_alignment int 0
 msg "Mengaktifkan picom (matikan compositor bawaan xfwm4)..."
 set_xfconf xfwm4 /general/use_compositing bool false
 
-cat > "$AUTOSTART_DIR/picom.desktop" <<'EOF'
+# Autostart entries dipasang dari repo (config/autostart/) — satu sumber.
+# Juga disable xscreensaver sistem (dobel dengan light-locker) & bersihkan
+# entry usang dari setup lama (redish/plank/ulauncher).
+msg "Memasang autostart entries (picom, conky, light-locker; xscreensaver off)..."
+mkdir -p "$AUTOSTART_DIR"
+for f in picom.desktop conky-anime-glass.desktop light-locker.desktop xscreensaver.desktop; do
+    [ -f "$SRC_DIR/config/autostart/$f" ] && install_file "$SRC_DIR/config/autostart/$f" "$AUTOSTART_DIR/$f"
+done
+rm -f "$AUTOSTART_DIR/conky.desktop" "$AUTOSTART_DIR/redish-conky.desktop" \
+      "$AUTOSTART_DIR/picom-redish.desktop" "$AUTOSTART_DIR/plank.desktop" \
+      "$AUTOSTART_DIR/plank-redish.desktop" "$AUTOSTART_DIR/ulauncher.desktop" 2>/dev/null || true
+
+if [ ! -f "$AUTOSTART_DIR/picom.desktop" ]; then
+    # fallback bila repo entry tidak ada (ditulis inline)
+    cat > "$AUTOSTART_DIR/picom.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Picom (compositor)
@@ -332,26 +346,17 @@ Comment=Glassmorphism compositor ringan
 Exec=picom --daemon
 X-GNOME-Autostart-enabled=true
 EOF
+fi
 msg "Autostart picom -> $AUTOSTART_DIR/picom.desktop"
 pkill -x picom 2>/dev/null || true
 picom --daemon 2>/dev/null && msg "Picom berjalan." || warn "Picom gagal start (cek driver GPU)."
 
 # ================= 6b. Lock screen ringan (light-locker) =================
-# light-locker: lock screen ~10MB RAM. Sistem sudah autostart versi polos dari
-# /etc/xdg/autostart/light-locker.desktop — file user dengan nama SAMA akan
-# menimpanya, sehingga hanya satu instance jalan, tapi dengan flag kita:
-# kunci otomatis saat suspend & lid close.
+# light-locker: lock screen ~10MB RAM. Entry user (config/autostart/) menimpa
+# versi polos dari /etc/xdg/autostart/ sehingga hanya satu instance dengan flag
+# --lock-on-suspend & --lock-on-lid. xscreensaver didisable (dobel lock).
 if command -v light-locker >/dev/null 2>&1; then
-    msg "Mengaktifkan light-locker (lock screen ringan)..."
-    cat > "$AUTOSTART_DIR/light-locker.desktop" <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=Light Locker (lock screen)
-Comment=Lock screen ringan — aktif saat idle/suspend/lid
-Exec=light-locker --lock-on-suspend --lock-on-lid
-X-GNOME-Autostart-enabled=true
-EOF
-    msg "Autostart light-locker (override sistem) -> $AUTOSTART_DIR/light-locker.desktop"
+    msg "light-locker aktif; xscreensaver dimatikan (anti dobel lock screen)."
 else
     warn "light-locker belum terpasang — install: sudo apt install light-locker"
 fi

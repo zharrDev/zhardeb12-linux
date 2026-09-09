@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Light Locker (lock screen)
+Comment=Lock screen ringan — aktif saat idle/suspend/lid
+Exec=light-locker --lock-on-suspend --lock-on-lid
+X-GNOME-Autostart-enabled=true

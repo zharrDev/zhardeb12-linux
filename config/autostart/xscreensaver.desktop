@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=XScreenSaver
+Comment=Dimatikan — lock screen ditangani light-locker (ringan)
+Exec=/usr/share/xscreensaver/xscreensaver-wrapper.sh -no-splash
+Hidden=true
+X-GNOME-Autostart-enabled=false
