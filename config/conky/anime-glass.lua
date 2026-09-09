@@ -43,12 +43,14 @@ local function lerp(c1, c2, t)
 end
 
 -- warna-warna tema
-local BG   = rgba(C[1], 0.82) -- latar kartu (gelap, semi-transparan)
-local BORD = rgba(C[2], 0.60) -- garis tepi (aksen)
-local ACC  = rgba(C[2], 1.00) -- aksen utama
-local ACCS = rgba(C[2], 0.50) -- aksen lembut (divider, footer)
-local FGL  = rgba(C[7], 1.00) -- teks utama
-local SUB  = rgba(C[6], 0.90) -- teks sekunder
+-- ACC memakai C[6] (biru langit wallpaper) — konsisten dengan warna hover
+-- biru di gtk.css (theme_selected_bg_color = colors[5] = baris ke-6 pywal).
+local BG   = rgba(C[1], 0.80) -- latar kartu (gelap, semi-transparan)
+local BORD = rgba(C[6], 0.55) -- garis tepi (aksen biru)
+local ACC  = rgba(C[6], 1.00) -- aksen utama (biru langit)
+local ACCS = rgba(C[6], 0.50) -- aksen lembut (divider, footer)
+local FGL  = rgba(C[7], 1.00) -- teks utama (beige terang)
+local SUB  = rgba(C[7], 0.75) -- teks sekunder (beige redup)
 local TRK  = rgba(C[1], 0.60) -- track bar
 local WHITE = {1, 1, 1, 1}
 

@@ -323,11 +323,24 @@ PY
 # --- c) Panel Xfce: warna latar panel via xfconf-query (andal) ---
         if command -v xfconf-query >/dev/null 2>&1; then
             PANEL_BG="$(sed -n '1p' "$COLORS_FILE" 2>/dev/null || echo '#363815')"
-            eval "$(python3 - "$PANEL_BG" <<'PY2'
+            eval "$(python3 - "$PANEL_BG" "$COLORS_FILE" <<'PY2'
 import sys
 h = sys.argv[1].lstrip('#')
-r, g, b = (int(h[i:i+2], 16)/255 for i in (0, 2, 4))
-print(f"PANEL_R={r:.6f} PANEL_G={g:.6f} PANEL_B={b:.6f}")
+r0, g0, b0 = (int(h[i:i+2], 16) for i in (0, 2, 4))
+# panel glass: 70% color0 (gelap) + 30% aksen biru wallpaper (baris ke-6 pywal)
+# => gelas gelap dengan sentuhan biru langit, elegant & senada wallpaper
+acc = (95, 162, 206)  # fallback biru langit
+acc_hex = []
+try:
+    with open(sys.argv[2]) as f:
+        acc_hex = [l.strip() for l in f if l.strip().startswith('#')]
+except Exception:
+    pass
+if len(acc_hex) >= 6:
+    a = acc_hex[5].lstrip('#')
+    acc = (int(a[0:2], 16), int(a[2:4], 16), int(a[4:6], 16))
+r = int(r0*0.7 + acc[0]*0.3); g = int(g0*0.7 + acc[1]*0.3); b = int(b0*0.7 + acc[2]*0.3)
+print(f"PANEL_R={r/255:.6f} PANEL_G={g/255:.6f} PANEL_B={b/255:.6f}")
 PY2
 )"
             for PN in $(LC_NUMERIC=C xfconf-query -c xfce4-panel -p /panels -v 2>/dev/null | grep -Eo 'panel-[0-9]+' | sort -u); do
