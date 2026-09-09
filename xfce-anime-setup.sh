@@ -308,17 +308,26 @@ set_xfconf xsettings /Gtk/FontName     string "Inter 10"
 set_xfconf xsettings /Net/ThemeName    string "$GTK_THEME"
 set_xfconf xfwm4 /general/title_font   string "Inter Bold 9"
 
-# Tema XFWM glass (Flat-Remix-Dark-XFWM-Glass): titlebar & border
-# semi-transparan (alpha 45%/25%) — wallpaper tembus + blur picom,
-# tombol close/min/max tetap jelas. Shadow client-side xfwm4 dimatikan
-# (tidak ada lagi gelap di sekitar jendela).
-GLASS_XFWM="$SRC_DIR/config/xfwm4/Flat-Remix-Dark-XFWM-Glass"
-if [ -d "$GLASS_XFWM" ]; then
-    mkdir -p "$HOME/.themes"
-    rm -rf "$HOME/.themes/Flat-Remix-Dark-XFWM-Glass"
-    cp -r "$GLASS_XFWM" "$HOME/.themes/"
-    set_xfconf xfwm4 /general/theme string "Flat-Remix-Dark-XFWM-Glass"
-    msg "Tema XFWM glass -> Flat-Remix-Dark-XFWM-Glass (titlebar kaca 45%, border 25%)"
+# Tema XFWM glass (Zhardeb-Glass-Rounded): titlebar kaca 72%/45%,
+# border kaca 55% + outline aksen pywal, pojok rounded 10px ala By-LeyzS,
+# tombol glyph Flat-Remix (close merah / min oranye / max biru).
+# Warna di-generate dari pywal oleh scripts/generate-xfwm-theme.sh;
+# repo menyimpan snapshot tema (fallback bila pywal belum jalan).
+GEN_XFWM="$SRC_DIR/scripts/generate-xfwm-theme.sh"
+SNAP_XFWM="$SRC_DIR/config/xfwm4/Zhardeb-Glass-Rounded"
+mkdir -p "$HOME/.themes"
+if command -v convert >/dev/null 2>&1 && [ -f "$HOME/.cache/wal/colors" ]; then
+    bash "$GEN_XFWM" >/dev/null 2>&1 \
+        && msg "Tema XFWM glass di-generate dari warna wallpaper (pywal)." \
+        || warn "Gagal generate tema XFWM — pakai snapshot repo."
+fi
+if [ ! -d "$HOME/.themes/Zhardeb-Glass-Rounded" ] && [ -d "$SNAP_XFWM" ]; then
+    cp -r "$SNAP_XFWM" "$HOME/.themes/"
+    msg "Tema XFWM glass dipasang dari snapshot repo."
+fi
+if [ -d "$HOME/.themes/Zhardeb-Glass-Rounded" ]; then
+    set_xfconf xfwm4 /general/theme string "Zhardeb-Glass-Rounded"
+    msg "Tema XFWM -> Zhardeb-Glass-Rounded (kaca rounded ala By-LeyzS)."
 else
     set_xfconf xfwm4 /general/theme string "$XFWM_THEME"
 fi
@@ -376,6 +385,25 @@ fi
 msg "Autostart picom -> $AUTOSTART_DIR/picom.desktop"
 pkill -x picom 2>/dev/null || true
 picom --daemon 2>/dev/null && msg "Picom berjalan." || warn "Picom gagal start (cek driver GPU)."
+
+# ================= 6a. Shortcut window (Super+Q/W/A + Super+arrow) ==========
+# window-shortcuts.sh (wmctrl): close / min / max / geser jendela aktif.
+# Ter-install ke ~/.local/bin dan di-bind via xfce4-keyboard-shortcuts.
+msg "Memasang shortcut window (Super+Q close, W min, A max, arrow geser)..."
+if [ -f "$SRC_DIR/scripts/window-shortcuts.sh" ]; then
+    mkdir -p "$HOME/.local/bin"
+    install -m 755 "$SRC_DIR/scripts/window-shortcuts.sh" "$HOME/.local/bin/window-shortcuts.sh"
+    WS="$HOME/.local/bin/window-shortcuts.sh"
+    bind_key() { xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$1" --create -t string -s "$2" 2>/dev/null || true; }
+    bind_key "<Super>q"      "$WS close"
+    bind_key "<Super>w"      "$WS min"
+    bind_key "<Super>a"      "$WS max"
+    bind_key "<Super>Left"   "$WS left"
+    bind_key "<Super>Right"  "$WS right"
+    bind_key "<Super>Up"     "$WS up"
+    bind_key "<Super>Down"   "$WS down"
+    msg "Shortcut window aktif (perlu xfsettingsd reload / re-login bila tidak langsung jalan)."
+fi
 
 # ================= 6b. Lock screen ringan (light-locker) =================
 # light-locker: lock screen ~10MB RAM. Entry user (config/autostart/) menimpa

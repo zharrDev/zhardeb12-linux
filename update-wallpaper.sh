@@ -451,6 +451,17 @@ PY
                 || warn "Conky gagal restart — cek /tmp/conky-anime-glass.log"
         fi
 
+        # tema XFWM glass (Zhardeb-Glass-Rounded): warna kaca + outline ikut
+        # wallpaper — regenerasi dari pywal, lalu apply ulang
+        GEN_XFWM="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/scripts/generate-xfwm-theme.sh"
+        [ -x "$GEN_XFWM" ] || GEN_XFWM="$HOME/Documents/zhardeb/scripts/generate-xfwm-theme.sh"
+        if [ -x "$GEN_XFWM" ]; then
+            bash "$GEN_XFWM" >/dev/null 2>&1 \
+                && xfconf-query -c xfwm4 -p /general/theme -s "Zhardeb-Glass-Rounded" 2>/dev/null \
+                && msg "Tema XFWM glass di-regenerate (kaca & outline ikut wallpaper)." \
+                || warn "Gagal regenerasi tema XFWM glass."
+        fi
+
         # btop: tema pywal (btopwal.theme) — btop membaca saat start,
         # tidak perlu restart (dijalankan manual user).
 

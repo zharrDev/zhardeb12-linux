@@ -119,6 +119,32 @@ xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 
 ## ✨ Komponen ala By-LeyzS (port ke Xfce)
 
+### Tema XFWM `Zhardeb-Glass-Rounded` (jendela kaca rounded ala Hyprland)
+
+- **Pojok rounded 10px** (persis `rounding = 10` By-LeyzS), titlebar kaca
+  **72% aktif / 45% non-aktif**, border kaca 55%, **outline aksen pywal**
+  (biru langit) mengelilingi jendela.
+- Warna **otomatis ikut wallpaper** — di-generate dari pywal oleh
+  `scripts/generate-xfwm-theme.sh` setiap `update-wallpaper.sh` jalan.
+- Tombol close/min/max **glyph Flat-Remix asli** (merah/oranye/biru).
+- Snapshot tema tersimpan di `config/xfwm4/Zhardeb-Glass-Rounded/`.
+
+### Shortcut window (Super/Windows key)
+
+| Shortcut | Fungsi |
+| --- | --- |
+| `Super + Q` | **Close** jendela aktif |
+| `Super + W` | **Minimize** |
+| `Super + A` | **Maximize** toggle |
+| `Super + ←` | Geser jendela ke kiri (80px) |
+| `Super + →` | Geser ke kanan |
+| `Super + ↑` | Geser ke atas |
+| `Super + ↓` | Geser ke bawah |
+
+Diimplementasikan via `scripts/window-shortcuts.sh` (wmctrl) — di-bind
+oleh installer ke `xfce4-keyboard-shortcuts`. Jarak geser bisa diubah:
+`STEP=40 ~/.local/bin/window-shortcuts.sh left`.
+
 | Komponen | By-LeyzS (Hyprland) | Zhardeb (Xfce) |
 | --- | --- | --- |
 | Bar | waybar transparan + chip | Xfce panel `background-style=2` + chip via `gtk.css` |
