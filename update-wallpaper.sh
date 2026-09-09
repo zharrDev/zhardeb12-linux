@@ -230,7 +230,12 @@ css = f"""/* Ditulis otomatis oleh update-wallpaper.sh (pywal) — jangan edit m
 """
 # Bagian ini string biasa (bukan f-string) karena memakai kurung kurawal CSS
 css_static = """
-/* ===== override widget agar aplikasi (Thunar, dll) ikut warna wallpaper ===== */
+/* ============================================================
+   Design language ala By-LeyzS (Hyprland dotfiles):
+   - panel & modul: pill rounded + border aksen, hover tukar warna
+   - notifikasi: kartu gelap glass + border aksen 2px + radius besar
+   - semua warna dari wallpaper via pywal (@theme_selected_bg_color)
+============================================================ */
 window, .background, decoration {
     background-color: @theme_bg_color;
 }
@@ -240,13 +245,17 @@ headerbar, .titlebar, toolbar, .toolbar {
 entry {
     background-color: @theme_base_color;
     border-color: shade(@theme_bg_color, 1.5);
+    border-radius: 6px;
 }
 entry:focus {
     border-color: @theme_selected_bg_color;
+    box-shadow: 0 0 0 1px @theme_selected_bg_color;
 }
 button {
     background-color: shade(@theme_bg_color, 1.15);
     border-color: shade(@theme_bg_color, 1.45);
+    border-radius: 6px;
+    transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 button:hover {
     background-color: @theme_selected_bg_color;
@@ -260,6 +269,12 @@ button:active, button:checked, button:checked:hover {
 }
 menu, menubar, .menu {
     background-color: @theme_bg_color;
+    border: 1px solid alpha(@theme_selected_bg_color, 0.35);
+    border-radius: 8px;
+    padding: 4px;
+}
+menuitem, menuitem:hover, menuitem:selected {
+    border-radius: 6px;
 }
 menuitem:hover, menuitem:selected {
     background-color: @theme_selected_bg_color;
@@ -285,10 +300,18 @@ scrollbar slider {
     background-color: alpha(@theme_selected_bg_color, 0.75);
     border-radius: 6px;
 }
-/* panel xfce: hover tombol (tasklist, menu, systray, clock, actions) */
+/* ===== PANEL XFCE — pill modules ala waybar By-LeyzS =====
+   Setiap tombol panel: pill (radius besar) + border aksen tipis;
+   hover = tukar warna (bg -> aksen, teks -> gelap) seperti waybar. */
 #xfce4-panel button, #xfce4-panel .toggle,
 .xfce4-panel button, .xfce4-panel .toggle {
-    border-radius: 9px;
+    border-radius: 14px;
+    border: 2px solid alpha(@theme_selected_bg_color, 0.30);
+    background-color: transparent;
+    color: @theme_fg_color;
+    margin: 3px 2px;
+    padding: 0 6px;
+    transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 #xfce4-panel button:hover, #xfce4-panel .toggle:hover,
 .xfce4-panel button:hover, .xfce4-panel .toggle:hover {
@@ -296,18 +319,34 @@ scrollbar slider {
     color: @theme_selected_fg_color;
     border-color: @theme_selected_bg_color;
 }
-/* notifikasi xfce4-notifyd */
+#xfce4-panel button:active, #xfce4-panel button:checked,
+.xfce4-panel button:active, .xfce4-panel button:checked {
+    background-color: shade(@theme_selected_bg_color, 0.78);
+    color: #ffffff;
+    border-color: shade(@theme_selected_bg_color, 0.78);
+}
+/* ===== NOTIFIKASI — kartu gelap glass ala swaync By-LeyzS =====
+   Latar gelap hampir pekat, border aksen 2px, sudut besar,
+   judul berwarna aksen (seperti .summary di swaync). */
 #XfceNotifyWindow {
-    background-color: @theme_bg_color;
-    border: 1px solid @theme_selected_bg_color;
-    border-radius: 12px;
+    background-color: alpha(shade(@theme_bg_color, 0.55), 0.97);
+    border: 2px solid @theme_selected_bg_color;
+    border-radius: 20px;
+    padding: 10px;
 }
 #XfceNotifyWindow label#summary {
-    color: @theme_fg_color;
-    font-weight: bold;
+    color: @theme_selected_bg_color;
+    font-weight: 800;
+    font-size: 14px;
 }
 #XfceNotifyWindow label#body {
     color: @theme_fg_color;
+    font-size: 12px;
+}
+#XfceNotifyWindow button {
+    background-color: alpha(@theme_selected_bg_color, 0.18);
+    border-radius: 10px;
+    border: 1px solid alpha(@theme_selected_bg_color, 0.5);
 }
 #XfceNotifyWindow button:hover {
     background-color: @theme_selected_bg_color;

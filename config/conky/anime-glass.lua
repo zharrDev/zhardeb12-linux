@@ -246,10 +246,10 @@ function conky_draw_card()
     text(cr, '✦  A N I M E   G L A S S  ✦', W / 2, 522, 9.5, CAIRO_FONT_WEIGHT_BOLD, ACCS, 'center')
     text(cr, conky_parse('${time %Z}'), W / 2, 539, 8.5, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'center')
 
-    -- border kartu (di atas banner, tipis)
-    round_rect(cr, 0.75, 0.75, W - 1.5, H - 1.5, 25)
+    -- border kartu (di atas banner, 2px aksen — design language By-LeyzS)
+    round_rect(cr, 1, 1, W - 2, H - 2, 25)
     cairo_set_source_rgba(cr, BORD[1], BORD[2], BORD[3], BORD[4])
-    cairo_set_line_width(cr, 1.5)
+    cairo_set_line_width(cr, 2)
     cairo_stroke(cr)
 
     cairo_destroy(cr)

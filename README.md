@@ -14,7 +14,7 @@ Koleksi wallpaper terpusat ala By-LeyzS-Arch-Hyprland-Dotfiles:
 
 | Lokasi | Isi |
 | --- | --- |
-| `config/wallpapers/originals/` | **Koleksi repo** — gambar anime asli (4 gambar) |
+| `config/wallpapers/originals/` | **Koleksi repo** — gambar anime asli (8 gambar: 4 bawaan + 4 dari By-LeyzS-Arch-Hyprland-Dotfiles) |
 | `~/.config/wallpapers/originals/` | Koleksi yang disalin ke sistem oleh installer |
 | `~/Pictures/Wallpapers/Anime/` | Gambar hasil upload manual + versi landscape |
 
@@ -26,6 +26,10 @@ Gambar asli:
 | `968133251138558907.jpeg` | Anime lain |
 | `1147432811330550518.jpeg` | Anime lain |
 | `影.jpeg` | Anime lain |
+| `blue-girl.png` | Anime biru (dari By-LeyzS) |
+| `cyan-girl2.png` | Anime cyan (dari By-LeyzS) |
+| `city-girl-sunset.png` | Anime sunset (dari By-LeyzS) |
+| `purple-nature.png` | Anime ungu (dari By-LeyzS) |
 
 Skrip otomatis membuat versi **landscape 1920×1080** dari tiap gambar dengan
 teknik *blur-fill* (gambar tetap utuh di tengah, sisi kiri/kanan diisi blur).
@@ -199,8 +203,12 @@ Banner & avatar di-generate oleh `update-wallpaper.sh` ke
 - **Hover biru (semua tombol/menu/panel/tasklist)**: warna hover diambil dari
   palet wallpaper (aksen biru `colors[5]`) lewat `theme_selected_bg_color` —
   `button:hover`, `menuitem:hover`, `row:hover`, tombol panel, dll.
-- **Notifikasi (xfce4-notifyd)**: `#XfceNotifyWindow` di gtk.css — latar warna
-  wallpaper, border + tombol aksen biru.
+- **Design language ala By-LeyzS**: panel & widget memakai gaya *pill modules*
+  (border-radius 14, border aksen 2px, hover = tukar warna seperti waybar) dan
+  notifikasi bergaya *swaync* — kartu gelap glass + border aksen 2px +
+  sudut 20px + judul berwarna aksen. Semua warna tetap dari pywal.
+- **Notifikasi (xfce4-notifyd)**: `#XfceNotifyWindow` di gtk.css — latar gelap
+  glass, border aksen 2px, sudut 20px, judul aksen, tombol aksen.
 - **Ikon**: Tela-circle-blue-dark — style bulat seperti awal, folder **biru** (bukan merah) senada wallpaper.
 
 ---
