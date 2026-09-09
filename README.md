@@ -6,6 +6,16 @@ Skrip + konfigurasi untuk **mempercantik tampilan Xfce** di Debian 12 dengan gay
 transparansi/blur (glassmorphism) yang elegan, ringan di RAM/CPU, dan warna UI
 yang menyesuaikan wallpaper anime secara otomatis.
 
+> ✨ **Design language ala [By-LeyzS-Arch-Hyprland-Dotfiles](https://github.com/L3yzs/By-LeyzS-Arch-Hyprland-Dotfiles)**
+> (diporting dari Hyprland/Wayland ke Xfce/X11 — memakai wallpaper kita sendiri):
+> - **Bar transparan penuh** + modul "chip" berborder aksen ala waybar
+> - **Workspaces bulat** (pager Xfce) radius 50%
+> - Font **JetBrainsMono Nerd Font bold** di seluruh UI
+> - **Cava** visualizer audio dengan warna dari wallpaper (pywal)
+> - **Btop** monitor sistem bertema pywal
+> - **Fastfetch** info sistem dengan box border + logo anime ASCII (dari wallpaper)
+> - Hover chip = tukar warna (bg ↔ aksen) seperti waybar By-LeyzS
+
 ---
 
 ## 📦 Gambar yang tersedia
@@ -104,6 +114,33 @@ Rotasi bergilir semua gambar koleksi:
 xfconf-query -c xsettings -p /Gtk/ThemeName -s "catppuccin-mocha-blue-standard+default"
 xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 ```
+
+---
+
+## ✨ Komponen ala By-LeyzS (port ke Xfce)
+
+| Komponen | By-LeyzS (Hyprland) | Zhardeb (Xfce) |
+| --- | --- | --- |
+| Bar | waybar transparan + chip | Xfce panel `background-style=2` + chip via `gtk.css` |
+| Workspaces | `#workspaces button` bulat | plugin **pager** + `#pager-button` radius 50% |
+| CPU/RAM | modul `cpu`/`memory` | plugin **systemload** (RAM) + conky |
+| Audio | `pulseaudio` modul | plugin **pulseaudio** (chip) |
+| Visualizer | cava `source=background` | **cava** sama persis (warna pywal) |
+| System monitor | btop `TTY` theme | **btop** + `btopwal.theme` (pywal) |
+| Sysinfo | fastfetch + arch.txt logo | **fastfetch** + logo anime ASCII (auto dari wallpaper via `jp2a`) |
+| Terminal | kitty opacity 0.6 + trail | **kitty** port sama + pywal include |
+| Notifikasi | swaync border aksen | xfce4-notifyd via `gtk.css` (border 2px aksen, radius 20px) |
+
+Cara pakai:
+```bash
+bash scripts/apply-leyzs-panel.sh    # tata panel ala waybar By-LeyzS
+fastfetch                            # info sistem + logo anime
+cava                                 # visualizer audio (warna wallpaper)
+btop                                 # monitor sistem (tema pywal)
+```
+
+Logo fastfetch di-regenerate otomatis dari wallpaper aktif setiap
+`update-wallpaper.sh` dijalankan (ala By-LeyzS yang pakai arch.txt statis).
 
 ---
 
@@ -336,16 +373,22 @@ xscreensaver. Installer menulis override autostart
 ├── update-wallpaper.sh        # ganti wallpaper + warna UI otomatis (--random)
 ├── rotate-wallpaper.sh        # rotasi wallpaper bergilir/acak
 ├── README.md                  # panduan ini
+├── scripts/
+│   ├── apply-leyzs-panel.sh   # tata panel ala waybar By-LeyzS
+│   └── generate-panel-info.sh # tata ulang panel + conky
 ├── config/
 │   ├── wallpapers/            # koleksi wallpaper terpusat (originals/)
 │   ├── picom/picom.conf       # konfigurasi glassmorphism ringan
 │   ├── conky/anime-glass.conf # widget info desktop (kiri-tengah)
 │   ├── conky/anime-glass.lua # gambar kartu glass (warna dari pywal)
+│   ├── cava/config            # visualizer audio (warna pywal) — ala By-LeyzS
+│   ├── btop/btop.conf         # monitor sistem (tema pywal) — ala By-LeyzS
+│   ├── fastfetch/             # sysinfo + logo anime ASCII — ala By-LeyzS
 │   ├── xfce4/terminal/terminalrc
 │   ├── xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 │   ├── gtk-3.0/settings.ini
 │   ├── gtk-3.0/gtk.css        # override warna (ditulis ulang pywal)
-│   └── kitty/kitty.conf
+│   └── kitty/kitty.conf       # port kitty By-LeyzS (opacity 0.6 + pywal)
 └── asset/                     # gambar anime asli (user upload)
 ```
 

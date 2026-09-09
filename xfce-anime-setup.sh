@@ -100,10 +100,37 @@ fi
 # ================= 2. Install paket & asset (skip bila --skip-install) =================
 if [ "$SKIP_INSTALL" -eq 0 ]; then
     msg "Memasang dependensi..."
-    apt_install xfce4-terminal xfce4-settings xfconf xfwm4 xfce4-panel xfce4-panel-plugin XRDesktop \
+    # Catatan: hanya paket yang BENAR-BENAR ada di repo Debian 12 (bookworm).
+    # (xfce4-panel-plugin / XRDesktop / xfce4-sensors-plugin tidak ada/ganti di apt.)
+    apt_install xfce4-terminal xfce4-settings xfconf xfwm4 xfce4-panel \
         picom git curl unzip fonts-inter fonts-cantarell xdg-utils xdg-user-dirs \
-        python3-pip xdg-utils xfce4-settings xfce4-appfinder \
-        conky lm-sensors xfce4-sensors-plugin
+        python3-pip xfce4-appfinder \
+        conky lm-sensors xfce4-power-manager-plugins light-locker \
+        xfce4-pulseaudio-plugin pulseaudio \
+        xfce4-genmon-plugin xfce4-systemload-plugin cava btop jp2a
+
+    # fastfetch: tidak ada di apt Debian 12 — binary user dari GitHub release
+    if [ ! -x "$HOME/.local/bin/fastfetch" ]; then
+        msg "Memasang fastfetch (binary user, tanpa sudo)..."
+        mkdir -p "$HOME/.local/bin" /tmp/ff-install
+        FF_URL="$(curl -sL https://api.github.com/repos/fastfetch-cli/fastfetch/releases/latest \
+            | grep -oE 'https://[^"]+fastfetch-linux-amd64.tar.gz' | head -1)"
+        if [ -n "$FF_URL" ]; then
+            if curl -fL --retry 2 -o /tmp/ff-install/ff.tar.gz "$FF_URL" \
+                && tar -xzf /tmp/ff-install/ff.tar.gz -C /tmp/ff-install \
+                && cp -f /tmp/ff-install/fastfetch-linux-amd64/usr/bin/fastfetch "$HOME/.local/bin/" \
+                && chmod +x "$HOME/.local/bin/fastfetch"; then
+                msg "fastfetch -> ~/.local/bin/fastfetch"
+            else
+                warn "fastfetch gagal diunduh (opsional — lewati)."
+            fi
+            rm -rf /tmp/ff-install
+        else
+            warn "URL fastfetch tidak ditemukan (opsional — lewati)."
+        fi
+    else
+        msg "fastfetch sudah terpasang di ~/.local/bin."
+    fi
 
     # --- Compositor: picom (lebih ringan dari xfwm4 paint) ---
     apt_install "$PICOM_PKG"
@@ -201,6 +228,16 @@ mkdir -p "$CFG_DIR/picom" "$CFG_DIR/xfce4/terminal" "$CFG_DIR/gtk-3.0" "$CFG_DIR
 install_file "$SRC_DIR/config/picom/picom.conf"   "$CFG_DIR/picom/picom.conf"
 install_file "$SRC_DIR/config/gtk-3.0/settings.ini" "$CFG_DIR/gtk-3.0/settings.ini"
 install_file "$SRC_DIR/config/gtk-3.0/gtk.css"      "$CFG_DIR/gtk-3.0/gtk.css"
+
+# Config ala By-LeyzS: cava (visualizer), btop (monitor), fastfetch (sysinfo)
+mkdir -p "$CFG_DIR/cava" "$CFG_DIR/btop" "$CFG_DIR/fastfetch"
+[ -f "$SRC_DIR/config/cava/config" ] && install_file "$SRC_DIR/config/cava/config" "$CFG_DIR/cava/config"
+[ -f "$SRC_DIR/config/btop/btop.conf" ] && install_file "$SRC_DIR/config/btop/btop.conf" "$CFG_DIR/btop/btop.conf"
+if [ -f "$SRC_DIR/config/fastfetch/config.jsonc" ]; then
+    install_file "$SRC_DIR/config/fastfetch/config.jsonc" "$CFG_DIR/fastfetch/config.jsonc"
+    install_file "$SRC_DIR/config/fastfetch/anime-logo.txt" "$CFG_DIR/fastfetch/anime-logo.txt"
+    # logo di-regenerate dari wallpaper aktif saat update-wallpaper.sh jalan
+fi
 
 # terminalrc: isi ulang hanya jika belum pernah dibuat oleh skrip ini
 TERM_RC="$CFG_DIR/xfce4/terminal/terminalrc"

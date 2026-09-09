@@ -127,7 +127,10 @@ find_banner() {
     printf '%s' ""
 }
 find_avatar() {
-    for c in "$CONFIG_WALLS/originals/968133251138558907.jpeg" "$WALL_DIR/968133251138558907.jpeg"; do
+    for c in "$CONFIG_WALLS/originals/5699937025130076.jpeg" \
+             "$WALL_DIR/5699937025130076.jpeg" \
+             "$CONFIG_WALLS/originals/968133251138558907.jpeg" \
+             "$WALL_DIR/968133251138558907.jpeg"; do
         [ -f "$c" ] && { printf '%s' "$c"; return; }
     done
     printf '%s' ""
@@ -145,6 +148,17 @@ if [ -f "$AVATAR_IMG" ]; then
     convert "$AVATAR_IMG" -resize 56x56^ -gravity Center -extent 56x56 "$CFG_DIR/conky/anime-avatar.png" 2>/dev/null \
         && msg "Avatar conky -> $CFG_DIR/conky/anime-avatar.png (${AVATAR_IMG##*/})" \
         || warn "Gagal membuat avatar conky."
+fi
+
+# 3c) Logo fastfetch (ala By-LeyzS arch.txt): ASCII art 24-bit color
+#     di-generate dari wallpaper aktif via jp2a (bila terpasang).
+if command -v jp2a >/dev/null 2>&1; then
+    mkdir -p "$CFG_DIR/fastfetch"
+    convert "$IMG" -resize 200x -gravity center -crop 200x300+0+0 +repage -quality 92 /tmp/ff-logo-src.jpg 2>/dev/null \
+        && jp2a --width=30 --colors --background=light /tmp/ff-logo-src.jpg > "$CFG_DIR/fastfetch/anime-logo.txt" 2>/dev/null \
+        && msg "Logo fastfetch -> $CFG_DIR/fastfetch/anime-logo.txt (dari wallpaper)" \
+        || warn "Logo fastfetch gagal dibuat (opsional)."
+    rm -f /tmp/ff-logo-src.jpg
 fi
 
 # 4) Pywal: samakan warna seluruh UI dengan warna dominan wallpaper
@@ -235,7 +249,7 @@ css_static = """
    - panel & modul: pill rounded + border aksen, hover tukar warna
    - notifikasi: kartu gelap glass + border aksen 2px + radius besar
    - semua warna dari wallpaper via pywal (@theme_selected_bg_color)
-============================================================ */
+   ============================================================ */
 window, .background, decoration {
     background-color: @theme_bg_color;
 }
@@ -301,16 +315,21 @@ scrollbar slider {
     border-radius: 6px;
 }
 /* ===== PANEL XFCE — pill modules ala waybar By-LeyzS =====
-   Setiap tombol panel: pill (radius besar) + border aksen tipis;
-   hover = tukar warna (bg -> aksen, teks -> gelap) seperti waybar. */
+   Bar transparan penuh (background-style=2); setiap modul jadi
+   "chip": bg gelap + border 2px aksen + radius 15px ala
+   #clock/#cpu/#memory waybar; hover = tukar warna (bg aksen). */
+#xfce4-panel, .xfce4-panel {
+    background-color: transparent;
+}
 #xfce4-panel button, #xfce4-panel .toggle,
 .xfce4-panel button, .xfce4-panel .toggle {
-    border-radius: 14px;
-    border: 2px solid alpha(@theme_selected_bg_color, 0.30);
-    background-color: transparent;
+    background-color: alpha(shade(@theme_bg_color, 0.92), 0.88);
     color: @theme_fg_color;
-    margin: 3px 2px;
-    padding: 0 6px;
+    border: 2px solid alpha(@theme_selected_bg_color, 0.55);
+    border-radius: 15px;
+    margin: 5px 2px;
+    padding: 0 10px;
+    font-weight: 800;
     transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 #xfce4-panel button:hover, #xfce4-panel .toggle:hover,
@@ -321,9 +340,39 @@ scrollbar slider {
 }
 #xfce4-panel button:active, #xfce4-panel button:checked,
 .xfce4-panel button:active, .xfce4-panel button:checked {
-    background-color: shade(@theme_selected_bg_color, 0.78);
-    color: #ffffff;
-    border-color: shade(@theme_selected_bg_color, 0.78);
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+    border-color: @theme_selected_bg_color;
+}
+/* genmon/systemload: teks chip di dalam panel */
+#xfce4-panel > widget > box > label,
+#xfce4-panel label {
+    color: @theme_fg_color;
+    font-weight: 800;
+}
+/* pager: workspace bulat ala #workspaces button (radius 50%) */
+#xfce4-panel #pager-button {
+    background-color: alpha(shade(@theme_bg_color, 0.92), 0.88);
+    border: 2px solid alpha(@theme_selected_bg_color, 0.55);
+    border-radius: 50%;
+    margin: 5px 4px;
+    min-width: 23px;
+    min-height: 23px;
+}
+#xfce4-panel #pager-button:hover {
+    background-color: @theme_fg_color;
+    color: @theme_bg_color;
+    border-color: @theme_fg_color;
+}
+#xfce4-panel #pager-button:checked,
+#xfce4-panel #pager-button:active {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+    border-color: @theme_selected_bg_color;
+}
+/* clock: sedikit lebih besar & bold ala By-LeyzS #clock */
+#xfce4-panel #clock-button label {
+    font-size: 13px;
 }
 /* ===== NOTIFIKASI — kartu gelap glass ala swaync By-LeyzS =====
    Latar gelap hampir pekat, border aksen 2px, sudut besar,
@@ -359,35 +408,14 @@ with open(gtk_css, "w") as f:
 print("  gtk.css         : warna aplikasi GTK mengikuti wallpaper")
 PY
 
-# --- c) Panel Xfce: warna latar panel via xfconf-query (andal) ---
+# --- c) Panel Xfce: bar transparan ala waybar By-LeyzS ----------------
+# window#waybar { background: transparent } — chip modul diberi
+# bg+border oleh gtk.css. Panel bg-style 2 = transparan penuh.
         if command -v xfconf-query >/dev/null 2>&1; then
-            PANEL_BG="$(sed -n '1p' "$COLORS_FILE" 2>/dev/null || echo '#363815')"
-            eval "$(python3 - "$PANEL_BG" "$COLORS_FILE" <<'PY2'
-import sys
-h = sys.argv[1].lstrip('#')
-r0, g0, b0 = (int(h[i:i+2], 16) for i in (0, 2, 4))
-# panel glass: 70% color0 (gelap) + 30% aksen biru wallpaper (baris ke-6 pywal)
-# => gelas gelap dengan sentuhan biru langit, elegant & senada wallpaper
-acc = (95, 162, 206)  # fallback biru langit
-acc_hex = []
-try:
-    with open(sys.argv[2]) as f:
-        acc_hex = [l.strip() for l in f if l.strip().startswith('#')]
-except Exception:
-    pass
-if len(acc_hex) >= 6:
-    a = acc_hex[5].lstrip('#')
-    acc = (int(a[0:2], 16), int(a[2:4], 16), int(a[4:6], 16))
-r = int(r0*0.7 + acc[0]*0.3); g = int(g0*0.7 + acc[1]*0.3); b = int(b0*0.7 + acc[2]*0.3)
-print(f"PANEL_R={r/255:.6f} PANEL_G={g/255:.6f} PANEL_B={b/255:.6f}")
-PY2
-)"
             for PN in $(LC_NUMERIC=C xfconf-query -c xfce4-panel -p /panels -v 2>/dev/null | grep -Eo 'panel-[0-9]+' | sort -u); do
-                LC_NUMERIC=C xfconf-query -c xfce4-panel -p "/panels/$PN/background-style" -s 1 2>/dev/null || true
-                LC_NUMERIC=C xfconf-query -c xfce4-panel -p "/panels/$PN/background-rgba" \
-                    -t double -s "$PANEL_R" -t double -s "$PANEL_G" -t double -s "$PANEL_B" -t double -s 0.72 2>/dev/null || true
+                LC_NUMERIC=C xfconf-query -c xfce4-panel -p "/panels/$PN/background-style" -s 2 2>/dev/null || true
             done
-            echo "  panel xfce4     : latar panel mengikuti wallpaper (xfconf)"
+            echo "  panel xfce4     : bar transparan ala waybar By-LeyzS (chip via gtk.css)"
             pkill -x xfce4-panel 2>/dev/null || true
             sleep 1
             nohup xfce4-panel >/dev/null 2>&1 &
@@ -421,6 +449,15 @@ PY2
             pgrep -f anime-glass.conf >/dev/null 2>&1 \
                 && msg "Conky di-restart dengan warna baru." \
                 || warn "Conky gagal restart — cek /tmp/conky-anime-glass.log"
+        fi
+
+        # btop: tema pywal (btopwal.theme) — btop membaca saat start,
+        # tidak perlu restart (dijalankan manual user).
+
+        # cava: kalau sedang jalan, restart agar warna bar ikut wallpaper
+        if pgrep -x cava >/dev/null 2>&1; then
+            pkill -x cava 2>/dev/null || true
+            msg "Cava dihentikan — jalankan ulang untuk warna wallpaper baru."
         fi
     else
         warn "Hasil pywal tidak ditemukan di ~/.cache/wal/colors"
