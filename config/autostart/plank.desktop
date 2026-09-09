@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Plank (dock)
+Comment=Dock launcher bawah — tema Transparent, tanpa latar gelap
+Exec=sh -c "sleep 3 && plank"
+X-GNOME-Autostart-enabled=true

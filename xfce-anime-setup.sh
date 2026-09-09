@@ -107,7 +107,7 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
         python3-pip xfce4-appfinder \
         conky lm-sensors xfce4-power-manager-plugins light-locker \
         xfce4-pulseaudio-plugin pulseaudio \
-        xfce4-genmon-plugin xfce4-systemload-plugin cava btop jp2a
+        xfce4-genmon-plugin xfce4-systemload-plugin cava btop jp2a plank
 
     # fastfetch: tidak ada di apt Debian 12 — binary user dari GitHub release
     if [ ! -x "$HOME/.local/bin/fastfetch" ]; then
@@ -306,8 +306,34 @@ set_xfconf xsettings /Gtk/ThemeName    string "$GTK_THEME"
 set_xfconf xsettings /Gtk/IconThemeName string "$ICON_THEME"
 set_xfconf xsettings /Gtk/FontName     string "Inter 10"
 set_xfconf xsettings /Net/ThemeName    string "$GTK_THEME"
-set_xfconf xfwm4 /general/theme        string "$XFWM_THEME"
 set_xfconf xfwm4 /general/title_font   string "Inter Bold 9"
+
+# Tema XFWM glass (Flat-Remix-Dark-XFWM-Glass): titlebar & border
+# semi-transparan (alpha 45%/25%) — wallpaper tembus + blur picom,
+# tombol close/min/max tetap jelas. Shadow client-side xfwm4 dimatikan
+# (tidak ada lagi gelap di sekitar jendela).
+GLASS_XFWM="$SRC_DIR/config/xfwm4/Flat-Remix-Dark-XFWM-Glass"
+if [ -d "$GLASS_XFWM" ]; then
+    mkdir -p "$HOME/.themes"
+    rm -rf "$HOME/.themes/Flat-Remix-Dark-XFWM-Glass"
+    cp -r "$GLASS_XFWM" "$HOME/.themes/"
+    set_xfconf xfwm4 /general/theme string "Flat-Remix-Dark-XFWM-Glass"
+    msg "Tema XFWM glass -> Flat-Remix-Dark-XFWM-Glass (titlebar kaca 45%, border 25%)"
+else
+    set_xfconf xfwm4 /general/theme string "$XFWM_THEME"
+fi
+
+# Plank: dock bawah tema Transparent (tanpa latar gelap/blur strip)
+if command -v plank >/dev/null 2>&1; then
+    mkdir -p "$HOME/.config/plank/dock1"
+    if [ -f "$HOME/.config/plank/dock1/settings" ]; then
+        sed -i 's/^Theme=.*/Theme=Transparent/' "$HOME/.config/plank/dock1/settings"
+    else
+        printf '[PlankDockPreferences]\nTheme=Transparent\nPosition=Bottom\nIconSize=48\nZoomEnabled=false\nHideMode=none\n' \
+            > "$HOME/.config/plank/dock1/settings"
+    fi
+    msg "Plank: tema Transparent (dock polos, tanpa blur strip bawah)."
+fi
 
 # Window button layout: tombol (maximize, minimize, close) di kanan titlebar
 # Format button_layout: [sebelah kiri] | [sebelah kanan]
@@ -326,15 +352,15 @@ set_xfconf xfwm4 /general/use_compositing bool false
 
 # Autostart entries dipasang dari repo (config/autostart/) — satu sumber.
 # Juga disable xscreensaver sistem (dobel dengan light-locker) & bersihkan
-# entry usang dari setup lama (redish/plank/ulauncher).
-msg "Memasang autostart entries (picom, conky, light-locker; xscreensaver off)..."
+# entry usang dari setup lama (redish/plank/ulauncher/mmew).
+msg "Memasang autostart entries (picom, conky, light-locker, plank; xscreensaver off)..."
 mkdir -p "$AUTOSTART_DIR"
-for f in picom.desktop conky-anime-glass.desktop light-locker.desktop xscreensaver.desktop; do
+for f in picom.desktop conky-anime-glass.desktop light-locker.desktop plank.desktop xscreensaver.desktop; do
     [ -f "$SRC_DIR/config/autostart/$f" ] && install_file "$SRC_DIR/config/autostart/$f" "$AUTOSTART_DIR/$f"
 done
 rm -f "$AUTOSTART_DIR/conky.desktop" "$AUTOSTART_DIR/redish-conky.desktop" \
-      "$AUTOSTART_DIR/picom-redish.desktop" "$AUTOSTART_DIR/plank.desktop" \
-      "$AUTOSTART_DIR/plank-redish.desktop" "$AUTOSTART_DIR/ulauncher.desktop" 2>/dev/null || true
+      "$AUTOSTART_DIR/picom-redish.desktop" "$AUTOSTART_DIR/plank-redish.desktop" \
+      "$AUTOSTART_DIR/ulauncher.desktop" "$AUTOSTART_DIR/mmew.desktop" 2>/dev/null || true
 
 if [ ! -f "$AUTOSTART_DIR/picom.desktop" ]; then
     # fallback bila repo entry tidak ada (ditulis inline)
