@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Picom (compositor)
-Comment=Glassmorphism compositor ringan
-Exec=picom --daemon
+Comment=Glassmorphism compositor — border radius 10, blur dual_kawase
+Exec=/home/suo/.local/bin/picom --config /home/suo/.config/picom.conf --daemon
+TryExec=/home/suo/.local/bin/picom
 X-GNOME-Autostart-enabled=true

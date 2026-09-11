@@ -344,16 +344,17 @@ if command -v plank >/dev/null 2>&1; then
     msg "Plank: tema Transparent (dock polos, tanpa blur strip bawah)."
 fi
 
-# Window button layout: tombol (maximize, minimize, close) di kanan titlebar
-# Format button_layout: [sebelah kiri] | [sebelah kanan]
-#   Kodingan: H=Shade, M=Maximize, C=Minimize, &=separator, |=menu (kiri default),
-#   '|' = pemisah sisi kiri-kanan, dan tombol tanpa prefix artinya di kanan.
-#   Contoh: "HMC|"  -> Shade, Maximize, Minimize di kiri; Close di kanan.
-#   Contoh: "|HMC"  -> Menu kiri; Shade, Maximize, Minimize di kanan.
-#   Kita pilih: "HMC|" sehingga tombol close ada di kanan (paling kanan).
-set_xfconf xfwm4 /general/button_layout string "HMC|"
-# Title alignment: 0 = kiri, 1 = center, 2 = kanan (agar judul window rapi di kiri, tombol di kanan)
+# Window button layout: TANPA tombol ("|") — close/min/max dilakukan via
+# shortcut keyboard (Super+Q/W/A, lihat scripts/window-shortcuts.sh).
+# Titlebar tetap ada untuk judul & drag; tampilan bersih ala By-LeyzS/Hyprland.
+set_xfconf xfwm4 /general/button_layout string "|"
+# Title alignment: 0 = kiri, 1 = center, 2 = kanan
 set_xfconf xfwm4 /general/title_alignment int 0
+# Matikan tiling default Super+arrow xfwm4 (bentrok dengan shortcut geser)
+for tk in tile_left_key tile_right_key tile_up_key tile_down_key; do
+    set_xfconf xfwm4 "/general/$tk" string ""
+done
+set_xfconf xfwm4 /general/tile_on_move bool false
 
 # ================= 6. Compositor: picom menggantikan compositor bawaan xfwm4 =================
 msg "Mengaktifkan picom (matikan compositor bawaan xfwm4)..."

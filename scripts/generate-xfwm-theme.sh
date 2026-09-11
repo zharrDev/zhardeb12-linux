@@ -34,7 +34,8 @@ TB_H=28     # tinggi titlebar
 B_W=6       # tebal border sisi/bawah (kaca tipis)
 T1_W=24     # lebar tile title-1 / title-5
 TW=240      # lebar template frame
-TH=90       # tinggi template frame
+# tinggi template: titlebar + tile sisi vertikal (64) + bawah (B_W) + buffer
+TH=$(( TB_H + 64 + B_W + 4 ))
 
 # alpha (%): titlebar aktif/non-aktif, border, outline aksen
 A_TITLE_A=72; A_TITLE_I=45; A_BORDER_A=55; A_BORDER_I=35; A_STROKE=60
@@ -52,19 +53,30 @@ BG_RGB=$(hex2rgb "$BG"); ACC_RGB=$(hex2rgb "$ACC")
 # yang terbukti merusak alpha channel di PNG palet).
 render_frame() { # render_frame <out> <a_title> <a_border>
     local out=$1 a_t=$2 a_b=$3
-    # 1) layer border: rounded-rect penuh, alpha a_b
+    # 1) layer border: rounded-rect penuh alpha a_b
     convert -size "${TW}x${TH}" xc:none \
         -fill "rgba($BG_RGB,0.$(printf '%02d' $a_b))" \
         -draw "roundrectangle 0,0 $((TW-1)),$((TH-1)) $R,$R" "$TMP/f1.png"
-    # 2) layer titlebar: rect atas (tinggi TB_H) alpha a_t, digabung di atas border
-    convert -size "${TW}x${TB_H}" xc:none \
+    # 2) mask: putih (alpha penuh) hanya di area DI BAWAH titlebar,
+    #    area titlebar dibiarkan transparan → DstIn menghapus border
+    #    di area titlebar (supaya alpha titlebar tidak menumpuk border)
+    convert -size "${TW}x${TH}" xc:none \
+        -fill white -draw "rectangle 0,$TB_H $((TW-1)),$((TH-1))" "$TMP/mask_keep.png"
+    convert "$TMP/f1.png" "$TMP/mask_keep.png" -compose DstIn -composite "$TMP/f1b.png"
+    # 3) layer titlebar: rounded-rect alpha a_t, di-crop sebatas tinggi
+    #    titlebar (TB_H) — pojok ikut kurva radius (tetap transparan)
+    convert -size "${TW}x${TH}" xc:none \
         -fill "rgba($BG_RGB,0.$(printf '%02d' $a_t))" \
-        -draw "rectangle 0,0 $((TW-1)),$((TB_H-1))" "$TMP/tb.png"
-    convert "$TMP/f1.png" "$TMP/tb.png" -gravity North -composite "$TMP/f3.png"
-    # 3) outline aksen 1.5px mengikuti rounded-rect
+        -draw "roundrectangle 0,0 $((TW-1)),$((TH-1)) $R,$R" \
+        -crop "${TW}x${TB_H}+0+0" +repage "$TMP/tb.png"
+    # 4) gabung — titlebar & border tidak overlap: alpha tidak menumpuk
+    convert "$TMP/f1b.png" "$TMP/tb.png" -gravity North -composite "$TMP/f3.png"
+    # 5) outline aksen 1.5px mengikuti rounded-rect (PNG32 = RGBA 8-bit)
     convert "$TMP/f3.png" \
         -stroke "rgba($ACC_RGB,0.$(printf '%02d' $A_STROKE))" -strokewidth 1.5 -fill none \
-        -draw "roundrectangle 0.75,0.75 $((TW-2)),$((TH-2)) $R,$R" "$out"
+        -draw "roundrectangle 0.75,0.75 $((TW-2)),$((TH-2)) $R,$R" \
+        -define png:color-type=6 -define png:bit-depth=8 -define png:format=png32 \
+        -type TrueColorAlpha "$out"
 }
 
 echo "[xfwm-theme] warna: kaca=#$BG aksen=#$ACC (dari pywal)"
@@ -73,8 +85,11 @@ render_frame "$TMP/frame-inactive.png" "$A_TITLE_I" "$A_BORDER_I"
 
 # ---- potong tile dari template ----------------------------------------
 # urutan xfwm4: pojok kiri-atas bulat, kanan-atas bulat, bawah kiri/kanan bulat
+# PNG32 eksplisit (8-bit RGBA): tanpa ini ImageMagick menghasilkan PNG
+# 4-bit colormap yang gagal dirender xfwm4 (titlebar tampil hitam).
 slice() { # slice <frame> <st> <tile> <WxH+X+Y>
-    convert "$1" -crop "$3" +repage "$OUT/$2.png"
+    convert "$1" -crop "$3" +repage -define png:color-type=6 -define png:bit-depth=8 \
+        -define png:format=png32 -type TrueColorAlpha "$OUT/$2.png"
 }
 
 for st in active inactive; do
