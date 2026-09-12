@@ -35,7 +35,7 @@ render_left() {
     fi
     echo "" >"$LEFT"
 }
-render_left 28 14
+render_left 20 10
 if command -v fastfetch >/dev/null 2>&1; then
     if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
         fastfetch --logo none --config "$HOME/.config/fastfetch/config.jsonc" >"$RIGHT" 2>/dev/null \
@@ -55,8 +55,8 @@ else
 fi
 if [ "$MODE" = "kitty" ] && [ -n "$IMG" ] && [ -f "$IMG" ]; then
     if command -v kitty >/dev/null 2>&1; then
-        kitty +kitten icat --align left --scale-up "$IMG" 2>/dev/null \
-            || kitty icat --align left --scale-up "$IMG" 2>/dev/null \
+        kitty +kitten icat --align left --place 16x8@0x0 --scale-up "$IMG" 2>/dev/null \
+            || kitty icat --align left --place 16x8@0x0 --scale-up "$IMG" 2>/dev/null \
             || cat "$LEFT"
         echo
     else
