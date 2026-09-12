@@ -406,6 +406,21 @@ if [ -f "$SRC_DIR/scripts/window-shortcuts.sh" ]; then
     msg "Shortcut window aktif (perlu xfsettingsd reload / re-login bila tidak langsung jalan)."
 fi
 
+# ================= 6a2. Wallpaper switching (klik avatar + shortcut) ========
+# Avatar conky (lingkaran 56px header) jadi tombol: klik -> ganti wallpaper
+# urut 1..N loop. Shortcut Super+Alt+W melakukan hal yang sama (silent).
+if [ -f "$SRC_DIR/scripts/conky-avatar-click.py" ]; then
+    install -m 755 "$SRC_DIR/scripts/conky-avatar-click.py" "$HOME/.local/bin/conky-avatar-click.py" 2>/dev/null || cp -f "$SRC_DIR/scripts/conky-avatar-click.py" "$HOME/.local/bin/conky-avatar-click.py"
+    chmod +x "$HOME/.local/bin/conky-avatar-click.py"
+    if [ -f "$SRC_DIR/config/autostart/conky-avatar-click.desktop" ]; then
+        install_file "$SRC_DIR/config/autostart/conky-avatar-click.desktop" "$HOME/.config/autostart/conky-avatar-click.desktop"
+    fi
+    msg "Avatar klik + shortcut wallpaper terpasang (Super+Alt+W)."
+fi
+_bind_wall() { xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$1" --create -t string -s "$2" 2>/dev/null || true; }
+_bind_wall "<Super><Alt>w" "$HOME/.local/bin/rotate-wallpaper.sh"
+msg "Shortcut Super+Alt+W -> ganti wallpaper (urut)."
+
 # ================= 6b. Lock screen ringan (light-locker) =================
 # light-locker: lock screen ~10MB RAM. Entry user (config/autostart/) menimpa
 # versi polos dari /etc/xdg/autostart/ sehingga hanya satu instance dengan flag

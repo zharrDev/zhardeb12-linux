@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Conky Avatar Click
+Comment=Overlay transparan di atas avatar conky — klik untuk ganti wallpaper
+Exec=sh -c "sleep 4 && python3 $HOME/.local/bin/conky-avatar-click.py"
+X-GNOME-Autostart-enabled=true
