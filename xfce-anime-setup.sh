@@ -491,6 +491,32 @@ if [ -f "$SRC_DIR/rotate-wallpaper.sh" ]; then
     msg "Skrip rotate & update-wallpaper -> ~/.local/bin (manual, tanpa autostart)"
 fi
 
+# ================= 9c. Splash terminal (gambar kiri + info kanan) ==========
+# Gambar 影-removebg-preview.png (kanan/kiri via chafa/kitty icat) + info
+# fastfetch tiap buka terminal (tiap tab/window, interaktif, non-ssh/tmux).
+if [ -f "$SRC_DIR/scripts/terminal-splash.sh" ]; then
+    mkdir -p "$HOME/.local/bin"
+    install_file "$SRC_DIR/scripts/terminal-splash.sh" "$HOME/.local/bin/terminal-splash.sh"
+    chmod +x "$HOME/.local/bin/terminal-splash.sh"
+    # hook idempotent di ~/.bashrc
+    if ! grep -q "zhardeb terminal splash" "$HOME/.bashrc" 2>/dev/null; then
+        cat >> "$HOME/.bashrc" <<'BRC'
+# >>> zhardeb terminal splash (gambar kiri + info kanan, tiap buka terminal) >>>
+if [[ $- == *i* ]] && [ -z "${SSH_CONNECTION:-}" ] && [ -z "${TMUX:-}" ]; then
+    _pp=$(ps -o comm= -p $PPID 2>/dev/null)
+    case "$_pp" in *xfce4-terminal*|*kitty*|*xterm*|*alacritty*) [ -x "$HOME/.local/bin/terminal-splash.sh" ] && "$HOME/.local/bin/terminal-splash.sh" auto 2>/dev/null || true;; esac
+    unset _pp
+fi
+# <<< zhardeb terminal splash <<<
+BRC
+        msg "Hook splash terminal ditambahkan ke ~/.bashrc (gambar kiri + fastfetch)."
+    else
+        msg "Hook splash terminal sudah ada di ~/.bashrc."
+    fi
+    # pastikan $HOME/.local/bin ada di PATH (banyak distro belum)
+    grep -q 'HOME/.local/bin' "$HOME/.bashrc" 2>/dev/null || echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+fi
+
 # ================= 10. Selesai =================
 echo
 msg "======================================================="
