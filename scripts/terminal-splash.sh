@@ -53,11 +53,23 @@ else
         echo "User: $(whoami)@$(hostname)"
     } >"$RIGHT"
 fi
-COLS=$(tput cols 2>/dev/null || echo 80)
-if [ "$COLS" -ge 92 ] && [ -s "$LEFT" ] && [ "$(wc -l <"$LEFT")" -gt 2 ]; then
-    paste -d '  ' "$LEFT" "$RIGHT" 2>/dev/null || { cat "$LEFT"; echo; cat "$RIGHT"; }
-else
-    [ -s "$LEFT" ] && cat "$LEFT" && echo
+if [ "$MODE" = "kitty" ] && [ -n "$IMG" ] && [ -f "$IMG" ]; then
+    if command -v kitty >/dev/null 2>&1; then
+        kitty +kitten icat --align left --scale-up "$IMG" 2>/dev/null \
+            || kitty icat --align left --scale-up "$IMG" 2>/dev/null \
+            || cat "$LEFT"
+        echo
+    else
+        cat "$LEFT" 2>/dev/null; echo
+    fi
     cat "$RIGHT"
+else
+    COLS=$(tput cols 2>/dev/null || echo 80)
+    if [ "$COLS" -ge 92 ] && [ -s "$LEFT" ] && [ "$(wc -l <"$LEFT")" -gt 2 ]; then
+        paste -d '  ' "$LEFT" "$RIGHT" 2>/dev/null || { cat "$LEFT"; echo; cat "$RIGHT"; }
+    else
+        [ -s "$LEFT" ] && cat "$LEFT" && echo
+        cat "$RIGHT"
+    fi
 fi
 printf '\033[0m\n'
