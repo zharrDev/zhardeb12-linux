@@ -86,7 +86,8 @@ Pasang wallpaper anime baru:
 Skrip akan:
 1. Salin gambar ke `~/Pictures/Wallpapers/Anime/`
 2. Buat versi landscape (blur-fill)
-3. Set sebagai wallpaper desktop
+3. Set sebagai wallpaper desktop **dengan crossfade 0.4s** (`scripts/wallpaper-fade.py`;
+   matikan via `./update-wallpaper.sh --no-fade ...` atau `FADE=0`, durasi via `FADE_TIME=0.8`)
 4. **Jalankan pywal** → warna seluruh UI ikut berubah:
    - warna panel, GTK, teks ikon desktop
    - palette terminal baru

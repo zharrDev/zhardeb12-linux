@@ -7,6 +7,7 @@
 #   ./update-wallpaper.sh /path/ke/gambar-anime.jpg 2560x1440   # resolusi kustom
 #   ./update-wallpaper.sh --random                               # wallpaper acak
 #   ./update-wallpaper.sh --random 2560x1440                     # acak + resolusi
+#   ./update-wallpaper.sh --no-fade ...                          # tanpa transisi (instan)
 #
 # Sumber koleksi (ala By-LeyzS):
 #   - ~/Pictures/Wallpapers/Anime/   (gambar asli hasil upload)
@@ -16,7 +17,8 @@
 # Yang dilakukan:
 #   1. Salin gambar asli          -> ~/Pictures/Wallpapers/Anime/
 #   2. Buat versi landscape (blur-fill) sesuai resolusi layar
-#   3. Set sebagai wallpaper desktop Xfce (semua monitor)
+#   3. Set sebagai wallpaper desktop Xfce (semua monitor) + crossfade 0.4s
+#      (nonaktifkan: --no-fade atau FADE=0)
 #   4. Jalankan pywal (wal) bila terpasang, lalu samakan warna:
 #        - Terminal (xfce4-terminal / kitty)
 #        - Panel Xfce (warna latar mengikuti warna dominan wallpaper)
@@ -27,11 +29,13 @@
 set -euo pipefail
 
 RANDOM_MODE=0
+NO_FADE=0
 POS_ARGS=()
 for arg in "$@"; do
     case "$arg" in
         --random|-r) RANDOM_MODE=1 ;;
-        -h|--help) sed -n '5,14p' "$0" | sed 's/^# //; s/^#//'; exit 0 ;;
+        --no-fade) NO_FADE=1 ;;
+        -h|--help) sed -n '5,11p' "$0" | sed 's/^# //; s/^#//'; exit 0 ;;
         *) POS_ARGS+=("$arg") ;;
     esac
 done
@@ -110,11 +114,24 @@ convert "$IMG" \
     -delete 0 -gravity center -composite -quality 92 "$LANDSCAPE"
 msg "Landscape ${RES} -> $LANDSCAPE"
 
-# 3) Set wallpaper desktop (semua monitor/workspace)
-for key in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep 'last-image' || true); do
-    xfconf-query -c xfce4-desktop -p "$key" -s "$LANDSCAPE" 2>/dev/null || true
-done
-msg "Wallpaper diterapkan ke desktop."
+# 3) Set wallpaper desktop (semua monitor/workspace) + crossfade 0.4s.
+#    Fade jalan default (FADE=1); matikan via --no-fade / FADE=0.
+#    Script fade menampilkan overlay, set xfconf di tengah fade, lalu
+#    menutup sendiri — bila gagal dilewati, fallback ke set instan.
+FADE_OK=0
+if [ "${FADE:-1}" = "1" ] && [ "$NO_FADE" -eq 0 ] && [ -n "${DISPLAY:-}" ]; then
+    FADE_SH="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)/scripts/wallpaper-fade.py"
+    if [ -f "$FADE_SH" ] && python3 "$FADE_SH" "$LANDSCAPE" "${FADE_TIME:-0.4}" >/dev/null 2>&1; then
+        FADE_OK=1
+        msg "Wallpaper diterapkan ke desktop (crossfade ${FADE_TIME:-0.4}s)."
+    fi
+fi
+if [ "$FADE_OK" -eq 0 ]; then
+    for key in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep 'last-image' || true); do
+        xfconf-query -c xfce4-desktop -p "$key" -s "$LANDSCAPE" 2>/dev/null || true
+    done
+    msg "Wallpaper diterapkan ke desktop."
+fi
 
 # 3b) Banner untuk widget conky anime-glass (tetap dari asset 影.jpeg),
 #     dan AVATAR yang selalu mengikuti wallpaper AKTIF ($IMG) — tiap ganti
