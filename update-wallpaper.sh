@@ -118,7 +118,7 @@ msg "Wallpaper diterapkan ke desktop."
 
 # 3b) Banner untuk widget conky anime-glass (tetap dari asset 影.jpeg),
 #     dan AVATAR yang selalu mengikuti wallpaper AKTIF ($IMG) — tiap ganti
-#     wallpaper (klik avatar / rotate / --random), avatar ikut ganti 1:1.
+#     wallpaper (rotate / --random / Super+Alt+W), avatar ikut ganti 1:1.
 #     BANNER_IMG / AVATAR_IMG bisa di-override via env.
 mkdir -p "$CFG_DIR/conky"
 find_banner() {
