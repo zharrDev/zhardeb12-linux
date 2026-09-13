@@ -116,8 +116,9 @@ for key in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep 'last-image' ||
 done
 msg "Wallpaper diterapkan ke desktop."
 
-# 3b) Banner & avatar untuk widget conky anime-glass (gambar tetap dari asset,
-#     bukan wallpaper — wallpaper desktop dipakai gambar landscape saja)
+# 3b) Banner untuk widget conky anime-glass (tetap dari asset 影.jpeg),
+#     dan AVATAR yang selalu mengikuti wallpaper AKTIF ($IMG) — tiap ganti
+#     wallpaper (klik avatar / rotate / --random), avatar ikut ganti 1:1.
 #     BANNER_IMG / AVATAR_IMG bisa di-override via env.
 mkdir -p "$CFG_DIR/conky"
 find_banner() {
@@ -127,6 +128,8 @@ find_banner() {
     printf '%s' ""
 }
 find_avatar() {
+    # Prioritas 1: wallpaper yang sedang aktif — avatar sync dengan desktop
+    [ -n "${IMG:-}" ] && [ -f "$IMG" ] && { printf '%s' "$IMG"; return; }
     for c in "$CONFIG_WALLS/originals/5699937025130076.jpeg" \
              "$WALL_DIR/5699937025130076.jpeg" \
              "$CONFIG_WALLS/originals/968133251138558907.jpeg" \
