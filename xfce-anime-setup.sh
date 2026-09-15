@@ -403,6 +403,7 @@ if [ -f "$SRC_DIR/scripts/window-shortcuts.sh" ]; then
     bind_key "<Super>Right"  "$WS right"
     bind_key "<Super>Up"     "$WS up"
     bind_key "<Super>Down"   "$WS down"
+    bind_key "<Super>Return" "$WS open"       # buka terminal (kitty 1280x720)
     msg "Shortcut window aktif (perlu xfsettingsd reload / re-login bila tidak langsung jalan)."
 fi
 
@@ -424,6 +425,42 @@ if command -v light-locker >/dev/null 2>&1; then
     msg "light-locker aktif; xscreensaver dimatikan (anti dobel lock screen)."
 else
     warn "light-locker belum terpasang — install: sudo apt install light-locker"
+fi
+
+# ================= 6c. LightDM greeter (login screen Anime Glass) =========
+# Deploy tema greeter custom (CSS glass) ke ~/.themes/ dan konfigurasi
+# greeter ke /etc/lightdm/ (perlu sudo) atau user config.
+msg "Mempersiapkan login screen Anime Glass..."
+# 1) Salin tema CSS ke user themes (biar greeter temu tanpa sudo)
+GREETER_THEME="$THEME_DIR/anime-glass-greeter"
+if [ -d "$SRC_DIR/config/lightdm/themes/anime-glass-greeter" ]; then
+    mkdir -p "$GREETER_THEME/gtk-3.0"
+    install_file "$SRC_DIR/config/lightdm/themes/anime-glass-greeter/gtk-3.0/gtk.css" \
+                 "$GREETER_THEME/gtk-3.0/gtk.css"
+    msg "Greeter theme -> $GREETER_THEME"
+fi
+# 2) Salin wallpaper login ke user Pictures
+LOGIN_BG="$WALL_DIR/purple-nature.png"
+if [ -f "$SRC_DIR/config/wallpapers/login/anime-login-bg.jpg" ]; then
+    install_file "$SRC_DIR/config/wallpapers/login/anime-login-bg.jpg" "$LOGIN_BG"
+    msg "Login wallpaper -> $LOGIN_BG"
+fi
+# 3) Deploy greeter config ke /etc/lightdm/ (perlu sudo)
+GREETER_CONF_SRC="$SRC_DIR/config/lightdm/lightdm-gtk-greeter.conf"
+if [ -f "$GREETER_CONF_SRC" ]; then
+    if sudo -n true 2>/dev/null; then
+        sudo cp -f "$GREETER_CONF_SRC" /etc/lightdm/lightdm-gtk-greeter.conf
+        msg "LightDM greeter config terpasang di /etc/lightdm/lightdm-gtk-greeter.conf"
+    else
+        msg "Konfigurasi greeter siap di: $GREETER_CONF_SRC"
+        msg "  Deploy manual:  sudo cp $GREETER_CONF_SRC /etc/lightdm/lightdm-gtk-greeter.conf"
+    fi
+fi
+# 4) Install toggle-picom-mode.sh + bind shortcut Super+Shift+B (glass↔lowmem)
+if [ -f "$SRC_DIR/scripts/toggle-picom-mode.sh" ]; then
+    install -m 755 "$SRC_DIR/scripts/toggle-picom-mode.sh" "$HOME/.local/bin/toggle-picom-mode.sh"
+    bind_key "<Super><Shift>b" "$HOME/.local/bin/toggle-picom-mode.sh"
+    msg "Shortcut Super+Shift+B -> toggle picom blur (glass ↔ lowmem)."
 fi
 
 # ================= 7. Panel floating (opsional) =================

@@ -1,0 +1,111 @@
+/* ============================================================================
+   lightdm-gtk-greeter.css — Anime Glass login screen theme
+   ============================================================================
+   Desain ala By-LeyzS: semi-transparent glass panel di atas anime wallpaper.
+   Warna: Catppuccin Mocha (bg #1e1e2e) + aksen biru langit (#5FA2CE).
+
+   NOTE: picom/compositor TIDAK berjalan saat login, jadi tidak ada blur.
+   Effek "glass" disimulasikan dengan background-color alpha + border aksen.
+
+   Deploy: copy ke ~/.config/lightdm/lightdm-gtk-greeter.css
+   ============================================================================ */
+
+/* --- Window utama greeter --- */
+.lightdm-gtk-greeter {
+    background-color: transparent;
+    color: #cdd6f4;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* --- Panel atas (clock, session, power) --- */
+#panel_window {
+    background-color: rgba(30, 30, 46, 0.55);       /* glass: 55% opaque */
+    color: #cdd6f4;
+    border: 1px solid rgba(95, 162, 206, 0.35);     /* aksen biru langit */
+    border-radius: 12px;
+    padding: 4px 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+#panel_window button {
+    background: transparent;
+    border: none;
+    color: #cdd6f4;
+    border-radius: 6px;
+    padding: 2px 8px;
+    transition: 150ms ease;
+}
+#panel_window button:hover {
+    background: rgba(95, 162, 206, 0.25);
+    color: #ffffff;
+}
+
+/* --- Kotak login (main window) --- */
+#greeter_window {
+    background-color: rgba(30, 30, 46, 0.45);       /* glass: 45% opaque */
+    color: #cdd6f4;
+    border-radius: 14px;
+    border: 2px solid rgba(95, 162, 206, 0.40);     /* aksen biru langit */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    padding: 24px 32px;
+}
+
+/* --- Entry (password box) --- */
+#greeter_window #entry {
+    background-color: rgba(30, 30, 46, 0.65);
+    border: 2px solid rgba(95, 162, 206, 0.50);
+    border-radius: 10px;
+    color: #cdd6f4;
+    caret-color: #5FA2CE;
+    padding: 8px 12px;
+    font-size: 13px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+#greeter_window #entry:focus {
+    border-color: #5FA2CE;
+    box-shadow: 0 0 0 2px rgba(95, 162, 206, 0.25);
+}
+
+/* --- User avatar / image --- */
+#greeter_window #user_image {
+    background-color: rgba(30, 30, 46, 0.65);
+    border: 2px solid rgba(95, 162, 206, 0.50);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* --- Label teks --- */
+#greeter_window .label {
+    color: #cdd6f4;
+    font-weight: 500;
+}
+
+/* --- Button aksi (Login, Cancel) --- */
+#greeter_window button {
+    background-color: rgba(95, 162, 206, 0.85);     /* biru langit solid */
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 16px;
+    font-weight: 600;
+    transition: 150ms ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+#greeter_window button:hover {
+    background-color: rgba(255, 255, 255, 0.95);
+    color: #1e1e2e;
+    box-shadow: 0 4px 12px rgba(95, 162, 206, 0.4);
+}
+#greeter_window button:active {
+    background-color: #5FA2CE;
+}
+
+/* --- Session menu & scroll --- */
+#greeter_window .view {
+    background: transparent;
+    border-radius: 10px;
+}
+#greeter_window .scrollable {
+    background-color: rgba(30, 30, 46, 0.60);
+    border-radius: 10px;
+}
