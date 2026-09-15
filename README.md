@@ -335,15 +335,23 @@ ditautkan via include `~/.cache/wal/colors-kitty.conf` setelah pertama kali
 - **Compositor bawaan xfwm4** dimatikan, diganti **Picom** (melalui autostart
   `picom.desktop`).
 - Picom dikonfigurasikan di `config/picom/picom.conf`:
-  - Rounded corners 12px (ringan, exclude maximized/fullscreen).
-  - Shadow halus (opacity 0.22, radius 10).
-  - Transparansi jendela tidak aktif 0.94.
-  - Blur tipis `dual_kawase`, strength 4 (hemat GPU).
-  - `unredir-if-possible = true` (fullscreen & idle → matikan compositing,
-    hemat daya).
+  - Rounded corners 8px (ringan, exclude maximized/fullscreen).
+  - Shadow off (hemat GPU; hanya glass/transparan yang dipakai).
+  - Opacity semua window = 1.0 (solid; hanya terminal/panel/conky yang transparan).
+  - Blur tipis `dual_kawase`, strength 3 (hemat GPU).
+  - `unredir-if-possible = true` (fullscreen & idle → matikan compositing).
 
-Estimasi beban: ~30–50 MB RAM, 2–4% CPU (tergantung GPU). Jika merasa berat,
-kurangi `blur-strength` jadi 2 atau matikan blur sama sekali.
+Estimasi beban: ~35–45 MB RAM, 2–4% CPU (tergantung GPU).
+
+>**Toggle lowmem mode** (untuk sistem RAM terbatas / Intel UHD yang shares RAM):
+>```bash
+>./scripts/toggle-picom-mode.sh         # toggle glass ↔ lowmem
+>./scripts/toggle-picom-mode.sh glass    # blur on, corner 8px
+>./scripts/toggle-picom-mode.sh lowmem   # blur OFF, corner 5px (hemat GPU RAM)
+>./scripts/toggle-picom-mode.sh status   # cek mode aktif
+>```
+>Mode `lowmem` pakai `config/picom/picom-lowmem.conf` (blur off, shadow off,
+>corner 5px) — hemat VRAM/GPU memory yang dialokasikan dari system RAM.
 
 ---
 
