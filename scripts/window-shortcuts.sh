@@ -9,6 +9,7 @@
 #   right   : Super+Right   — geser 80px ke kanan
 #   up      : Super+Up      — geser 80px ke atas
 #   down    : Super+Down    — geser 80px ke bawah
+#   open    : Super+Return   — buka terminal (kitty 1280x720+50+50)
 #
 # Mentok tepi layar (kiri/kanan) → jendela dipindah ke workspace sebelah
 # dan viewport ikut berpindah (ala movefocus/movetoworkspace Hyprland).
@@ -21,7 +22,7 @@ set -euo pipefail
 STEP="${STEP:-80}"
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "pakai: $0 close|min|max|left|right|up|down"; exit 1; }
+[ -n "$cmd" ] || { echo "pakai: $0 close|min|max|left|right|up|down|open"; exit 1; }
 command -v wmctrl >/dev/null 2>&1 || { echo "[gagal] wmctrl belum terpasang."; exit 1; }
 
 # id jendela aktif — bisa di-override via env WIN (untuk test)
@@ -29,6 +30,15 @@ AWID="${WIN:-$(xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | awk '/_NET_ACTIVE_WI
 [[ -n "$AWID" ]] || { echo "[gagal] tidak ada jendela aktif."; exit 1; }
 
 case "$cmd" in
+    open)
+        # buka terminal dengan ukuran & posisi tetap (kitty default)
+        if command -v kitty >/dev/null 2>&1; then
+            nohup kitty --geometry 1280x720+50+50 \
+                ${TERMINAL_CMD:--e "$SHELL"} >/dev/null 2>&1 &
+        else
+            nohup xfce4-terminal --geometry=140x36+50+50 >/dev/null 2>&1 &
+        fi
+        ;;
     close)  wmctrl -i -c "$AWID" ;;
     min)    wmctrl -i -r "$AWID" -b add,hidden ;;
     max)    wmctrl -i -r "$AWID" -b toggle,maximized_vert,maximized_horz ;;

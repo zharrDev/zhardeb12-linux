@@ -105,14 +105,31 @@ if [ -d "$HOME/Documents/zhardeb/config/wallpapers/originals" ] && [ "$HOME/Docu
         -exec cp -un {} "$CONFIG_WALLS/originals/" \; 2>/dev/null || true
 fi
 
-# 2) Versi landscape blur-fill
+# 2) Versi landscape blur-fill (dari asli $IMG → sesuai resolusi layar)
+#    CACHE: lewati regeneration bila file landscape sudah ada & lebih baru
+#    dari source gambar — menghemat ~2s ImageMagick setiap ganti wallpaper
+#    yang sama. Hapus cache lewat: rm -f ~/Pictures/Wallpapers/Anime/anime-*.jpg
 W="${RES%x*}"; H="${RES#*x}"
 LANDSCAPE="$WALL_DIR/anime-${RES}.jpg"
-convert "$IMG" \
-    \( -clone 0 -resize "${W}x${H}^" -gravity center -extent "${W}x${H}" -blur 0x35 -brightness-contrast -10 \) \
-    \( -clone 0 -resize "x${H}" \) \
-    -delete 0 -gravity center -composite -quality 92 "$LANDSCAPE"
-msg "Landscape ${RES} -> $LANDSCAPE"
+REGEN_LANDSCAPE=1
+if [ -f "$LANDSCAPE" ] && [ "$IMG" = "$(readlink -f "$IMG")" ]; then
+    src_hash="$(md5sum "$IMG" 2>/dev/null | cut -d' ' -f1)"
+    src_tag="$WALL_DIR/.$(basename "$IMG").${RES}.src"
+    cached_hash="$(cat "$src_tag" 2>/dev/null || echo "")"
+    if [ "$src_hash" = "$cached_hash" ]; then
+        REGEN_LANDSCAPE=0
+    fi
+fi
+if [ "$REGEN_LANDSCAPE" -eq 1 ]; then
+    convert "$IMG" \
+        \( -clone 0 -resize "${W}x${H}^" -gravity center -extent "${W}x${H}" -blur 0x35 -brightness-contrast -10 \) \
+        \( -clone 0 -resize "x${H}" \) \
+        -delete 0 -gravity center -composite -quality 92 "$LANDSCAPE"
+    md5sum "$IMG" 2>/dev/null | cut -d' ' -f1 > "$WALL_DIR/.$(basename "$IMG").${RES}.src"
+    msg "Landscape ${RES} -> $LANDSCAPE"
+else
+    msg "Landscape ${RES} pakai cache (tanpa regenerate)"
+fi
 
 # 3) Set wallpaper desktop (semua monitor/workspace) + crossfade 0.4s.
 #    Fade jalan default (FADE=1); matikan via --no-fade / FADE=0.
@@ -182,11 +199,28 @@ if command -v jp2a >/dev/null 2>&1; then
 fi
 
 # 4) Pywal: samakan warna seluruh UI dengan warna dominan wallpaper
-if [ -x "$WAL_BIN" ]; then
-    msg "Menjalankan pywal (wal) agar warna UI mengikuti wallpaper..."
-    "$WAL_BIN" -i "$IMG" -q -n || warn "wal gagal dijalankan (lihat pesan di atas)."
+#    CACHE: lewati bila wallpaper sama (hash image) — wal cukup lama (~1-2s)
+#    dan hasilnya (colors file) sudah divalidasi eksis.
+WAL_CACHE_DIR="$HOME/.cache/wal"
+mkdir -p "$WAL_CACHE_DIR"
+IMG_HASH=$(md5sum "$IMG" 2>/dev/null | cut -d' ' -f1 || echo "")
+WAL_HASH_FILE="$WAL_CACHE_DIR/.wal-img-hash"
+CACHED_WAL_HASH=$(cat "$WAL_HASH_FILE" 2>/dev/null || echo "")
+if [ -n "$IMG_HASH" ] && [ "$CACHED_WAL_HASH" = "$IMG_HASH" ] \
+   && [ -f "$WAL_CACHE_DIR/colors" ] && [ -f "$WAL_CACHE_DIR/colors-kitty.conf" ]; then
+    msg "Pywal pakai cache (wallpaper sama, lewati ekstraksi warna)."
+else
+    if [ -x "$WAL_BIN" ]; then
+        msg "Menjalankan pywal (wal) agar warna UI mengikuti wallpaper..."
+        "$WAL_BIN" -i "$IMG" -q -n || warn "wal gagal dijalankan (lihat pesan di atas)."
+        printf '%s' "$IMG_HASH" > "$WAL_HASH_FILE" 2>/dev/null || true
+    else
+        warn "Pywal belum terpasang — warna UI memakai palette bawaan."
+        warn "Install dulu: bash xfce-anime-setup.sh --pywal"
+    fi
+fi
 
-    COLORS_FILE="$HOME/.cache/wal/colors"
+COLORS_FILE="$HOME/.cache/wal/colors"
     if [ -f "$COLORS_FILE" ]; then
         python3 - "$COLORS_FILE" "$CFG_DIR" "$PANEL_XML" "$GTK_CSS" <<'PY'
 import os, re, sys, xml.etree.ElementTree as ET
@@ -436,9 +470,11 @@ PY
                 LC_NUMERIC=C xfconf-query -c xfce4-panel -p "/panels/$PN/background-style" -s 2 2>/dev/null || true
             done
             echo "  panel xfce4     : bar transparan ala waybar By-LeyzS (chip via gtk.css)"
+            # restart async WITHOUT blocking — panel reload sendiri,
+            # tidak perlu `sleep 1` yang menambah ~1s latency
             pkill -x xfce4-panel 2>/dev/null || true
-            sleep 1
-            nohup xfce4-panel >/dev/null 2>&1 &
+            setsid xfce4-panel </dev/null >/dev/null 2>&1 &
+            disown 2>/dev/null || true
             msg "Panel di-restart untuk memakai warna baru."
         fi
 
@@ -463,40 +499,39 @@ PY
         # (tanpa -d/-o: conky di-daemonize oleh config background=true sendiri)
         if [ -f "$CFG_DIR/conky/anime-glass.conf" ]; then
             pkill -f anime-glass.conf 2>/dev/null || true
-            sleep 1
-            nohup conky -c "$CFG_DIR/conky/anime-glass.conf" >/tmp/conky-anime-glass.log 2>&1 &
-            sleep 2
-            pgrep -f anime-glass.conf >/dev/null 2>&1 \
-                && msg "Conky di-restart dengan warna baru." \
-                || warn "Conky gagal restart — cek /tmp/conky-anime-glass.log"
+            # restart async — conky reload config sendiri saat start
+            setsid conky -c "$CFG_DIR/conky/anime-glass.conf" </dev/null >/tmp/conky-anime-glass.log 2>&1 &
+            disown 2>/dev/null || true
+            msg "Conky di-restart dengan warna baru."
         fi
 
         # tema XFWM glass (Zhardeb-Glass-Rounded): warna kaca + outline ikut
         # wallpaper — regenerasi dari pywal, lalu apply ulang
+        # CACHE: lewati regenerate bila file pywal colors sama (hindar ~2s convert x14)
         GEN_XFWM="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/scripts/generate-xfwm-theme.sh"
         [ -x "$GEN_XFWM" ] || GEN_XFWM="$HOME/Documents/zhardeb/scripts/generate-xfwm-theme.sh"
         if [ -x "$GEN_XFWM" ]; then
-            bash "$GEN_XFWM" >/dev/null 2>&1 \
-                && xfconf-query -c xfwm4 -p /general/theme -s "Zhardeb-Glass-Rounded" 2>/dev/null \
-                && msg "Tema XFWM glass di-regenerate (kaca & outline ikut wallpaper)." \
-                || warn "Gagal regenerasi tema XFWM glass."
+            # hash dari seluruh file pywal colors (16 baris hex)
+            COLORS_FILE="$HOME/.cache/wal/colors"
+            CACHE_HASH_FILE="$CFG_DIR/.cache/xfwm-theme-hash"
+            mkdir -p "$CFG_DIR/.cache"
+            CUR_HASH="$(md5sum "$COLORS_FILE" 2>/dev/null | cut -d' ' -f1 || echo "")"
+            CACHED_HASH="$(cat "$CACHE_HASH_FILE" 2>/dev/null || echo "")"
+            if [ "$CUR_HASH" != "$CACHED_HASH" ] && [ -n "$CUR_HASH" ]; then
+                bash "$GEN_XFWM" >/dev/null 2>&1 \
+                    && xfconf-query -c xfwm4 -p /general/theme -s "Zhardeb-Glass-Rounded" 2>/dev/null \
+                    && msg "Tema XFWM glass di-regenerate (kaca & outline ikut wallpaper)." \
+                    || warn "Gagal regenerasi tema XFWM glass."
+                printf '%s' "$CUR_HASH" > "$CACHE_HASH_FILE" 2>/dev/null || true
+            else
+                msg "Tema XFWM glass pakai cache (warna sama, lewati regenerate)."
+            fi
         fi
 
         # btop: tema pywal (btopwal.theme) — btop membaca saat start,
-        # tidak perlu restart (dijalankan manual user).
-
-        # cava: kalau sedang jalan, restart agar warna bar ikut wallpaper
-        if pgrep -x cava >/dev/null 2>&1; then
-            pkill -x cava 2>/dev/null || true
-            msg "Cava dihentikan — jalankan ulang untuk warna wallpaper baru."
-        fi
     else
-        warn "Hasil pywal tidak ditemukan di ~/.cache/wal/colors"
+        warn "Hasil pywal tidak ditemukan di ~/.cache/wal/colors — lewati update warna UI."
     fi
-else
-    warn "Pywal belum terpasang — warna UI memakai palette bawaan."
-    warn "Install dulu: bash xfce-anime-setup.sh --pywal"
-fi
 
 echo
 msg "Selesai. Wallpaper baru aktif: $LANDSCAPE"
