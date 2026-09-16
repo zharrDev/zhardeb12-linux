@@ -163,12 +163,15 @@ if [ "$FADE_OK" -eq 0 ]; then
     msg "Wallpaper diterapkan ke desktop."
 fi
 
-# 3b) Banner untuk widget conky anime-glass (tetap dari asset 影.jpeg),
-#     dan AVATAR yang selalu mengikuti wallpaper AKTIF ($IMG) — tiap ganti
-#     wallpaper (rotate / --random / Super+Alt+W), avatar ikut ganti 1:1.
+# 3b) Banner untuk widget conky anime-glass — mengikuti wallpaper AKTIF
+#     ($IMG) supaya kartu info menyatu dengan desktop; fallback ke asset
+#     影.jpeg. AVATAR juga mengikuti wallpaper aktif — tiap ganti wallpaper
+#     (rotate / --random / Super+Alt+W), banner & avatar ikut ganti 1:1.
 #     BANNER_IMG / AVATAR_IMG bisa di-override via env.
 mkdir -p "$CFG_DIR/conky"
 find_banner() {
+    # Prioritas 1: wallpaper yang sedang aktif — banner sync dengan desktop
+    [ -n "${IMG:-}" ] && [ -f "$IMG" ] && { printf '%s' "$IMG"; return; }
     for c in "$CONFIG_WALLS/originals/影.jpeg" "$WALL_DIR/影.jpeg"; do
         [ -f "$c" ] && { printf '%s' "$c"; return; }
     done
@@ -188,7 +191,7 @@ find_avatar() {
 BANNER_IMG="${BANNER_IMG:-$(find_banner)}"
 AVATAR_IMG="${AVATAR_IMG:-$(find_avatar)}"
 if [ -f "$BANNER_IMG" ]; then
-    convert "$BANNER_IMG" -resize 400x130^ -gravity North -extent 400x130 "$CFG_DIR/conky/anime-banner.png" 2>/dev/null \
+    convert "$BANNER_IMG" -resize 400x130^ -gravity North -extent 400x130 -unsharp 0x0.75+0.75+0.008 "$CFG_DIR/conky/anime-banner.png" 2>/dev/null \
         && msg "Banner conky -> $CFG_DIR/conky/anime-banner.png (${BANNER_IMG##*/})" \
         || warn "Gagal membuat banner conky."
 else

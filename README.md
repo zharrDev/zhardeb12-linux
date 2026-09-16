@@ -340,11 +340,16 @@ ditautkan via include `~/.cache/wal/colors-kitty.conf` setelah pertama kali
 - **Compositor bawaan xfwm4** dimatikan, diganti **Picom** (melalui autostart
   `picom.desktop`).
 - Picom dikonfigurasikan di `config/picom/picom.conf`:
-  - Rounded corners 8px (ringan, exclude maximized/fullscreen).
+  - Rounded corners 14px — termasuk **terminal xfce4-terminal & kitty**
+    (padding kitty 12/16px supaya teks tidak menempel sudut).
+  - **Animasi smooth**: buka window slide-in naik 0.18s, tutup/minimize
+    slide-out turun 0.15s (semua window, termasuk buka tab baru terminal),
+    fade opacity halus (fade-in 0.045 / fade-out 0.035).
   - Shadow off (hemat GPU; hanya glass/transparan yang dipakai).
   - Opacity semua window = 1.0 (solid; hanya terminal/panel/conky yang transparan).
   - Blur tipis `dual_kawase`, strength 3 (hemat GPU).
   - `unredir-if-possible = true` (fullscreen & idle → matikan compositing).
+  - **Crossfade wallpaper** 0.4s saat ganti wallpaper (`scripts/wallpaper-fade.py`).
 
 Estimasi beban: ~35–45 MB RAM, 2–4% CPU (tergantung GPU).
 
