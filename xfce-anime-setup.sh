@@ -439,23 +439,15 @@ if [ -d "$SRC_DIR/config/lightdm/themes/anime-glass-greeter" ]; then
                  "$GREETER_THEME/gtk-3.0/gtk.css"
     msg "Greeter theme -> $GREETER_THEME"
 fi
-# 2) Salin wallpaper login ke user Pictures
-LOGIN_BG="$WALL_DIR/purple-nature.png"
+# 2) Salin wallpaper login ke user Pictures (juga jadi fallback deploy)
 if [ -f "$SRC_DIR/config/wallpapers/login/anime-login-bg.jpg" ]; then
-    install_file "$SRC_DIR/config/wallpapers/login/anime-login-bg.jpg" "$LOGIN_BG"
-    msg "Login wallpaper -> $LOGIN_BG"
+    install_file "$SRC_DIR/config/wallpapers/login/anime-login-bg.jpg" \
+                 "$WALL_DIR/anime-login-bg.jpg"
+    msg "Login wallpaper -> $WALL_DIR/anime-login-bg.jpg"
 fi
-# 3) Deploy greeter config ke /etc/lightdm/ (perlu sudo)
-GREETER_CONF_SRC="$SRC_DIR/config/lightdm/lightdm-gtk-greeter.conf"
-if [ -f "$GREETER_CONF_SRC" ]; then
-    if sudo -n true 2>/dev/null; then
-        sudo cp -f "$GREETER_CONF_SRC" /etc/lightdm/lightdm-gtk-greeter.conf
-        msg "LightDM greeter config terpasang di /etc/lightdm/lightdm-gtk-greeter.conf"
-    else
-        msg "Konfigurasi greeter siap di: $GREETER_CONF_SRC"
-        msg "  Deploy manual:  sudo cp $GREETER_CONF_SRC /etc/lightdm/lightdm-gtk-greeter.conf"
-    fi
-fi
+# 3) Deploy penuh login screen (paket + tema + bg + autologin) butuh sudo:
+msg "Login screen: jalankan 'sudo bash $SRC_DIR/scripts/apply-lightdm-greeter.sh'"
+msg "  untuk deploy penuh (tema glass, wallpaper, font Inter, jam Indonesia)."
 # 4) Install toggle-picom-mode.sh + bind shortcut Super+Shift+B (glass↔lowmem)
 if [ -f "$SRC_DIR/scripts/toggle-picom-mode.sh" ]; then
     install -m 755 "$SRC_DIR/scripts/toggle-picom-mode.sh" "$HOME/.local/bin/toggle-picom-mode.sh"
@@ -574,6 +566,9 @@ msg "  Font       : JetBrainsMono Nerd Font + Inter"
 msg "  Compositor : picom (glassmorphism ringan)"
 msg "  Wallpaper  : $WALL_DIR/anime-${RESOLUTION}.jpg"
 msg "  Tombol window (close/minimize/maximize) sudah di kanan titlebar."
+msg ""
+msg "  Login screen  : sudo bash $(cd "$(dirname "$0")" && pwd)/scripts/apply-lightdm-greeter.sh"
+msg "                  (wallpaper anime + kartu login glass di LightDM)"
 msg ""
 msg "Langkah terakhir: logout lalu login kembali (atau restart X),"
 msg "agar tema, ikon, font, compositor, dan tombol window (close/min/maximize) diterapkan penuh."

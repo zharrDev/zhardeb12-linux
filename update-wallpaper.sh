@@ -65,7 +65,20 @@ if [ "$RANDOM_MODE" -eq 1 ]; then
         done < <(find "$pool" -maxdepth 1 -type f \
             \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) -print0 | sort -z)
     done
-    [ "${#ALL_IMGS[@]}" -gt 0 ] || { echo "[wallpaper] tidak ada gambar di koleksi."; exit 1; }
+    # --- filter: hanya gambar LANDSCAPE (rasio >= 1.5) ---
+    # Portrait/square tidak pernah dipakai sebagai wallpaper desktop
+    # (gambar itu untuk banner/avatar conky & login screen).
+    LANDSCAPE_IMGS=()
+    for f in "${ALL_IMGS[@]}"; do
+        dim=$(identify -format "%w %h" "$f" 2>/dev/null) || continue
+        w=${dim% *}; h=${dim#* }
+        [ -n "$w" ] && [ -n "$h" ] && [ "$h" -gt 0 ] 2>/dev/null || continue
+        if [ $(( w * 2 )) -ge $(( h * 3 )) ]; then
+            LANDSCAPE_IMGS+=("$f")
+        fi
+    done
+    [ "${#LANDSCAPE_IMGS[@]}" -gt 0 ] || { echo "[wallpaper] tidak ada gambar landscape di koleksi."; exit 1; }
+    ALL_IMGS=("${LANDSCAPE_IMGS[@]}")
     RANDOM_INDEX=$(( RANDOM % ${#ALL_IMGS[@]} ))
     IMG="${ALL_IMGS[$RANDOM_INDEX]}"
     printf '\033[1;36m[wallpaper]\033[0m Acak: %s (%d/%d)\n' "${IMG##*/}" $((RANDOM_INDEX+1)) "${#ALL_IMGS[@]}"

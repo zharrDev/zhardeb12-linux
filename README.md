@@ -83,6 +83,10 @@ Pasang wallpaper anime baru:
 ./update-wallpaper.sh /path/ke/gambar-anime.jpg 2560x1440  # resolusi kustom
 ./update-wallpaper.sh --random                              # pilih acak dari koleksi
 ```
+> 📐 **Hanya gambar landscape** (rasio ≥ 1.5) yang dipakai sebagai wallpaper
+> desktop — `--random` dan rotasi otomatis melewati gambar portrait/square
+> (gambar itu tetap dipakai untuk banner/avatar conky & login screen).
+
 Skrip akan:
 1. Salin gambar ke `~/Pictures/Wallpapers/Anime/`
 2. Buat versi landscape (blur-fill)
@@ -246,6 +250,7 @@ sesuai permintaan. Gambar asset lainnya ditempatkan di lokasi yang cocok:
 | `影.jpeg` | **Banner conky** (atas kartu anime-glass) |
 | `968133251138558907.jpeg` | **Avatar conky** (lingkaran kecil di header kartu) |
 | `1147432811330550518.jpeg` | **Background terminal kitty** (dim, `background_opacity 0.45`) |
+| `config/wallpapers/login/anime-login-bg.jpg` | **Background layar login LightDM** (1920×1080) |
 
 Banner & avatar di-generate oleh `update-wallpaper.sh` ke
 `~/.config/conky/anime-banner.png` & `anime-avatar.png`.
@@ -386,6 +391,31 @@ xscreensaver. Installer menulis override autostart
 `/etc/xdg/autostart/` sehingga hanya satu instance) dengan flag:
 - `--lock-on-suspend` — kunci layar otomatis saat suspend/resume
 - `--lock-on-lid` — kunci saat laptop lid ditutup
+
+---
+
+## 🔐 Tampilan Login Screen (LightDM)
+
+Layar login dibuat senada dengan desktop: wallpaper anime + kartu login glass
+(gelap transparan, sudut membulat, border aksen biru), panel jam+tanggal di atas
+(format Indonesia), tema & ikon yang sama dengan sesi desktop.
+
+```bash
+sudo bash scripts/apply-lightdm-greeter.sh                # pasang (login otomatis aktif)
+sudo bash scripts/apply-lightdm-greeter.sh --no-autologin # tampil kartu login (ketik password)
+```
+
+Yang dipasang:
+- `/usr/share/backgrounds/anime-glass/login-bg.jpg` — dari `config/wallpapers/login/`
+  (fallback: wallpaper aktif `anime-1920x1080.jpg`)
+- `/usr/share/themes/anime-glass-greeter/` — tema CSS glass khusus greeter
+- Tema GTK + ikon **Tela-circle-blue-dark** + font **Inter** system-wide
+- `lightdm-gtk-greeter.conf` — jam `Senin, 16 September 2026 • 14:30`, panel glass
+- Konfigurasi lama otomatis dibackup (`*.bak.<tanggal>`)
+
+> Ringan: greeter GTK polos tanpa efek berat — hanya CSS & transparansi, RAM
+> greeter ±20–30 MB. Uji tanpa reboot: `sudo systemctl restart lightdm`
+> (simpan pekerjaan dulu, sesi akan ditutup).
 
 ---
 
