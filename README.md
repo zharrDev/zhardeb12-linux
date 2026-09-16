@@ -466,6 +466,13 @@ Yang dipasang:
 
 ## 🐛 Troubleshooting
 
+- **Firefox "kecil banget" + bercak blur saat minimize/restore**: penyebabnya
+  animasi `hide`/`show` picom — xfwm4 tidak memberi target geometri taskbar,
+  jadi window digambar menyusut ke ukuran mungil dan blur `dual_kawase`
+  ikut ter-render di window kecil itu. Sudah diperbaiki: animasi hide/show
+  dihapus dari `picom.conf` (minimize/restore memakai fade halus saja) dan
+  Firefox dikecualikan dari blur. Solusi bila muncul lagi: hapus animasi
+  dengan trigger `hide`/`show` di `config/picom/picom.conf`.
 - **Picom tidak berjalan**: cek driver GPU (glx/egl). Coba ganti backend di
   `picom.conf` jadi `backend = "egl";` atau `backend = "xrender";`.
 - **Panel tidak muncul / error “plugin not found”**: biasanya karena nama
