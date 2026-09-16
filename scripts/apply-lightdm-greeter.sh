@@ -96,13 +96,19 @@ chmod 644 "$GREETER_CONF"
 ok "Config -> $GREETER_CONF (backup: *.bak.*)"
 
 # ---------------------------------------------------- 4) greeter session + autologin
+# rapikan dulu: gabungkan baris greeter-session ganda jadi satu
 sed -i 's|^#\?greeter-session=.*|greeter-session=lightdm-gtk-greeter|' /etc/lightdm/lightdm.conf
+awk '!/^greeter-session=/ || !seen[$0]++' /etc/lightdm/lightdm.conf > /tmp/lightdm.conf.tmp \
+    && mv /tmp/lightdm.conf.tmp /etc/lightdm/lightdm.conf
 if [ "$AUTOLOGIN" -eq 1 ]; then
     sed -i "s|^#\?autologin-user=.*|autologin-user=$REAL_USER|"  /etc/lightdm/lightdm.conf
     sed -i 's|^#\?autologin-user-timeout=.*|autologin-user-timeout=0|' /etc/lightdm/lightdm.conf
     sed -i 's|^#\?autologin-session=.*|autologin-session=xfce|'  /etc/lightdm/lightdm.conf
     grep -q "^autologin-user=" /etc/lightdm/lightdm.conf || \
-        sed -i "s|^\[Seat:\*\]|[Seat:*]\nautologin-user=$REAL_USER\nautologin-user-timeout=0\nautologin-session=xfce|" /etc/lightdm/lightdm.conf
+        sed -i "0,/\[Seat:\*\]/s//&\nautologin-user=$REAL_USER\nautologin-user-timeout=0\nautologin-session=xfce/" /etc/lightdm/lightdm.conf
+    # autologin-session kadang tidak ada barisnya — tambahkan setelah autologin-user
+    grep -q "^autologin-session=" /etc/lightdm/lightdm.conf || \
+        sed -i "/^autologin-user=/a autologin-session=xfce" /etc/lightdm/lightdm.conf
     ok "login otomatis aktif untuk: $REAL_USER (matikan: sudo bash $0 --no-autologin)"
 else
     sed -i 's|^#\?autologin-user=.*|autologin-user=|' /etc/lightdm/lightdm.conf
