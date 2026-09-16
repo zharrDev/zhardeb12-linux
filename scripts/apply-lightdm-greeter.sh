@@ -57,14 +57,19 @@ cp -f "$SRC_DIR/config/lightdm/themes/anime-glass-greeter/gtk-3.0/gtk.css" "$THE
 ok "Theme CSS -> $THEME_DIR/gtk.css"
 
 # Tema GTK + ikon user -> system-wide (greeter berjalan sebagai user lightdm)
+# PENTING: copy harus BERSIH (hapus dulu tujuan lama) — cp -rn bisa meninggalkan
+# tree parsial bila terganggu, dan tema ikon parsial = greeter CRASH (abort GTK).
 for d in "/home/$REAL_USER/.themes"/catppuccin-mocha-blue* "/home/$REAL_USER/.themes"/Catppuccin*; do
     [ -d "$d" ] || continue
-    mkdir -p /usr/share/themes
-    cp -rn "$d" /usr/share/themes/ 2>/dev/null || true
+    rm -rf "/usr/share/themes/$(basename "$d")"
+    cp -r "$d" /usr/share/themes/
 done
+ICON_SYS="/usr/share/icons/Tela-circle-blue-dark"
 if [ -d "/home/$REAL_USER/.icons/Tela-circle-blue-dark" ]; then
     mkdir -p /usr/share/icons
-    cp -rn "/home/$REAL_USER/.icons/Tela-circle-blue-dark" /usr/share/icons/ 2>/dev/null || true
+    rm -rf "$ICON_SYS"
+    cp -r "/home/$REAL_USER/.icons/Tela-circle-blue-dark" /usr/share/icons/
+    gtk-update-icon-cache -f "$ICON_SYS" >/dev/null 2>&1 || true
 fi
 
 # ---------------------------------------------------- 2) wallpaper login
@@ -95,6 +100,17 @@ sed -e "s|__LOGIN_BG__|${LOGIN_BG_DIR}/login-bg.jpg|g" \
     "$SRC_DIR/config/lightdm/lightdm-gtk-greeter.conf" > "$GREETER_CONF"
 chmod 644 "$GREETER_CONF"
 ok "Config -> $GREETER_CONF (backup: *.bak.*)"
+
+# Verifikasi integritas ikon system — bila copy tidak lengkap (greeter berjalan
+# sebagai user lightdm yang hanya membaca /usr/share), fallback ke Adwaita.
+# CATATAN: harus SETELAH conf ditulis (section 3), bukan sebelumnya.
+ICON_SYS="/usr/share/icons/Tela-circle-blue-dark"
+if [ -f "$ICON_SYS/16/actions/image-missing.svg" ] && [ -d "$ICON_SYS/scalable/apps" ]; then
+    ok "ikon system Tela-circle-blue-dark lengkap ($(find "$ICON_SYS" -name '*.svg' | wc -l) svg)"
+else
+    sed -i 's|^icon-theme-name=.*|icon-theme-name=Adwaita|' "$GREETER_CONF"
+    ok "ikon system Tela tidak lengkap -> greeter fallback ke Adwaita"
+fi
 
 # ---------------------------------------------------- 4) session & autologin (via drop-in conf.d)
 # LightDM membaca: /etc/lightdm/lightdm.conf.d/*.conf LALU /etc/lightdm/lightdm.conf.
