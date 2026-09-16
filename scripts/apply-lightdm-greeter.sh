@@ -34,12 +34,13 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # ---------------------------------------------------------------- 0) paket
-if ! command -v lightdm-gtk-greeter >/dev/null 2>&1 || ! dpkg -s fonts-inter >/dev/null 2>&1; then
+if ! command -v lightdm-gtk-greeter >/dev/null 2>&1 || ! dpkg -s fonts-inter >/dev/null 2>&1 \
+   || ! dpkg -s accountsservice >/dev/null 2>&1; then
     say "Memasang paket (dilewati bila sudah ada)..."
     apt-get update -qq || true
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lightdm lightdm-gtk-greeter fonts-inter
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lightdm lightdm-gtk-greeter fonts-inter accountsservice
 fi
-ok "lightdm + lightdm-gtk-greeter + fonts-inter siap"
+ok "lightdm + lightdm-gtk-greeter + fonts-inter + accountsservice siap"
 
 # Font Nerd Font user -> system-wide (agar tersedia di greeter & display manager)
 for d in "/home/$REAL_USER/.local/share/fonts" "$HOME/.local/share/fonts"; do

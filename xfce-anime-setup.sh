@@ -107,7 +107,8 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
         python3-pip xfce4-appfinder \
         conky lm-sensors xfce4-power-manager-plugins light-locker \
         xfce4-pulseaudio-plugin pulseaudio \
-        xfce4-genmon-plugin xfce4-systemload-plugin cava btop jp2a plank
+        xfce4-genmon-plugin xfce4-systemload-plugin cava btop jp2a plank \
+        accountsservice
 
     # fastfetch: tidak ada di apt Debian 12 — binary user dari GitHub release
     if [ ! -x "$HOME/.local/bin/fastfetch" ]; then
