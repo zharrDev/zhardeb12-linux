@@ -1,111 +1,199 @@
 /* ============================================================================
-   lightdm-gtk-greeter.css — Anime Glass login screen theme
+   lightdm-gtk-greeter.css — Anime Glass login screen theme (v2)
    ============================================================================
-   Desain ala By-LeyzS: semi-transparent glass panel di atas anime wallpaper.
+   Desain ala By-LeyzS: kartu login glass compact di atas wallpaper anime.
    Warna: Catppuccin Mocha (bg #1e1e2e) + aksen biru langit (#5FA2CE).
 
-   NOTE: picom/compositor TIDAK berjalan saat login, jadi tidak ada blur.
-   Effek "glass" disimulasikan dengan background-color alpha + border aksen.
+   PENTING: Selector mengikuti widget ASLI lightdm-gtk-greeter
+   (lihat /usr/share/doc/lightdm-gtk-greeter/sample-lightdm-gtk-greeter.css):
+     #panel_window, #login_window, #content_frame, #buttonbox_frame,
+     #user_image, #user_image_border, #greeter_infobar
+   JANGAN pakai #greeter_window — widget itu TIDAK ADA.
 
-   Deploy: copy ke ~/.config/lightdm/lightdm-gtk-greeter.css
+   NOTE: picom/compositor TIDAK berjalan saat login (hemat RAM), jadi
+   efek "glass" = alpha di child widget (diblend GTK sendiri, aman).
    ============================================================================ */
 
-/* --- Window utama greeter --- */
+/* --- Window utama greeter (latar = wallpaper, transparan) --- */
 .lightdm-gtk-greeter {
     background-color: transparent;
     color: #cdd6f4;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    text-shadow: 0 1px 2px alpha(black, 0.4);
+    icon-shadow: 0 1px 2px alpha(black, 0.4);
 }
 
-/* --- Panel atas (clock, session, power) --- */
+/* --- Panel atas (jam, host, session, power) --- */
 #panel_window {
-    background-color: rgba(30, 30, 46, 0.55);       /* glass: 55% opaque */
+    background-color: alpha(#1e1e2e, 0.72);
     color: #cdd6f4;
-    border: 1px solid rgba(95, 162, 206, 0.35);     /* aksen biru langit */
+    border: none;
     border-radius: 12px;
     padding: 4px 12px;
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    box-shadow: 0 2px 10px alpha(black, 0.35),
+                inset 0 0 0 1px alpha(#5FA2CE, 0.35);
 }
-#panel_window button {
+#panel_window .menubar,
+#panel_window .menubar > .menuitem {
+    background-color: transparent;
+    color: #cdd6f4;
+}
+#panel_window button,
+#panel_window .button {
     background: transparent;
     border: none;
     color: #cdd6f4;
     border-radius: 6px;
     padding: 2px 8px;
-    transition: 150ms ease;
+    transition: all 150ms ease;
 }
-#panel_window button:hover {
-    background: rgba(95, 162, 206, 0.25);
+#panel_window button:hover,
+#panel_window .button:hover {
+    background-color: alpha(#5FA2CE, 0.30);
     color: #ffffff;
 }
 
-/* --- Kotak login (main window) --- */
-#greeter_window {
-    background-color: rgba(30, 30, 46, 0.45);       /* glass: 45% opaque */
-    color: #cdd6f4;
+/* --- Kartu login (window utama) — compact, glass gelap elegan --- */
+#login_window,
+#shutdown_dialog,
+#restart_dialog {
+    border-style: none;
     border-radius: 14px;
-    border: 2px solid rgba(95, 162, 206, 0.40);     /* aksen biru langit */
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    padding: 24px 32px;
+    background-color: alpha(#1e1e2e, 0.90);
+    color: #cdd6f4;
+    padding: 8px;
+    /* border + depth digambar via box-shadow (window toplevel tidak punya border) */
+    box-shadow: 0 14px 40px alpha(black, 0.55),
+                inset 0 0 0 2px alpha(#5FA2CE, 0.45);
 }
 
-/* --- Entry (password box) --- */
-#greeter_window #entry {
-    background-color: rgba(30, 30, 46, 0.65);
-    border: 2px solid rgba(95, 162, 206, 0.50);
+/* --- Bagian atas kartu (avatar, user, entry) --- */
+#content_frame {
+    background-color: transparent;
+    padding: 18px 26px 12px;
+}
+
+/* --- Bagian bawah kartu (tombol) --- */
+#buttonbox_frame {
+    background-color: transparent;
+    border-style: none;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+    padding: 4px 26px 18px;
+}
+
+/* --- Semua label dalam kartu --- */
+#login_window label {
+    color: #cdd6f4;
+    text-shadow: none;
+}
+#login_window #user_combobox {
+    color: #cdd6f4;
+    font-weight: 600;
+}
+#login_window #user_combobox label {
+    color: #cdd6f4;
+}
+
+/* --- Entry password --- */
+#login_window entry,
+#login_window .entry {
+    background-color: alpha(#11111b, 0.85);
+    border: 1px solid alpha(#5FA2CE, 0.50);
     border-radius: 10px;
     color: #cdd6f4;
     caret-color: #5FA2CE;
     padding: 8px 12px;
     font-size: 13px;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+    box-shadow: inset 0 1px 3px alpha(black, 0.35);
+    transition: all 150ms ease;
 }
-#greeter_window #entry:focus {
+#login_window entry:focus,
+#login_window .entry:focus {
     border-color: #5FA2CE;
-    box-shadow: 0 0 0 2px rgba(95, 162, 206, 0.25);
+    box-shadow: 0 0 0 2px alpha(#5FA2CE, 0.25);
 }
 
-/* --- User avatar / image --- */
-#greeter_window #user_image {
-    background-color: rgba(30, 30, 46, 0.65);
-    border: 2px solid rgba(95, 162, 206, 0.50);
+/* --- Avatar user --- */
+#user_image {
+    background-color: alpha(#11111b, 0.80);
     border-radius: 50%;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    padding: 3px;
+}
+#user_image_border {
+    border-radius: 50%;
+    background-color: transparent;
+    box-shadow: inset 0 0 0 2px alpha(#5FA2CE, 0.55),
+                0 4px 14px alpha(black, 0.45);
 }
 
-/* --- Label teks --- */
-#greeter_window .label {
-    color: #cdd6f4;
-    font-weight: 500;
-}
-
-/* --- Button aksi (Login, Cancel) --- */
-#greeter_window button {
-    background-color: rgba(95, 162, 206, 0.85);     /* biru langit solid */
+/* --- Tombol aksi (Unlock / Login / Cancel) --- */
+#login_window button,
+#login_window .button,
+#shutdown_dialog button,
+#restart_dialog button {
+    background-color: alpha(#5FA2CE, 0.92);
     color: #ffffff;
     border: none;
     border-radius: 10px;
-    padding: 6px 16px;
+    padding: 7px 18px;
     font-weight: 600;
-    transition: 150ms ease;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    text-shadow: none;
+    transition: all 150ms ease;
+    box-shadow: 0 2px 8px alpha(black, 0.35);
 }
-#greeter_window button:hover {
-    background-color: rgba(255, 255, 255, 0.95);
-    color: #1e1e2e;
-    box-shadow: 0 4px 12px rgba(95, 162, 206, 0.4);
+#login_window button:hover,
+#login_window .button:hover,
+#shutdown_dialog button:hover,
+#restart_dialog button:hover {
+    background-color: #7db9dc;
+    color: #ffffff;
 }
-#greeter_window button:active {
-    background-color: #5FA2CE;
+#login_window button:active,
+#login_window .button:active {
+    background-color: #4a92c2;
 }
 
-/* --- Session menu & scroll --- */
-#greeter_window .view {
-    background: transparent;
-    border-radius: 10px;
+/* Tombol default (fokus awal) — tetap aksen */
+#login_window button.default,
+#login_window .button.default,
+#login_window button:focus,
+#login_window .button:focus {
+    background-color: #5FA2CE;
+    color: #ffffff;
 }
-#greeter_window .scrollable {
-    background-color: rgba(30, 30, 46, 0.60);
+
+/* --- Tombol shutdown/restart di panel --- */
+#shutdown_button.button {
+    color: #f38ba8;
+}
+#restart_button.button {
+    color: #fab387;
+}
+
+/* --- Notifikasi error (password salah dll) --- */
+#greeter_infobar {
     border-radius: 10px;
+    border: 1px solid alpha(#f38ba8, 0.55);
+    background-color: alpha(#302438, 0.95);
+    color: #f38ba8;
+    font-weight: 600;
+    text-shadow: none;
+}
+#greeter_infobar label {
+    color: #f38ba8;
+}
+
+/* --- Menu dropdown (session/user combobox) --- */
+#login_window .menu {
+    background-color: alpha(#1e1e2e, 0.97);
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px alpha(#5FA2CE, 0.40);
+}
+#login_window .menu .menuitem {
+    color: #cdd6f4;
+}
+#login_window .menu .menuitem:hover {
+    background-color: #5FA2CE;
+    color: #ffffff;
 }

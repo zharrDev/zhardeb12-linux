@@ -95,23 +95,56 @@ sed -e "s|__LOGIN_BG__|${LOGIN_BG_DIR}/login-bg.jpg|g" \
 chmod 644 "$GREETER_CONF"
 ok "Config -> $GREETER_CONF (backup: *.bak.*)"
 
-# ---------------------------------------------------- 4) greeter session + autologin
-# rapikan dulu: gabungkan baris greeter-session ganda jadi satu
-sed -i 's|^#\?greeter-session=.*|greeter-session=lightdm-gtk-greeter|' /etc/lightdm/lightdm.conf
-awk '!/^greeter-session=/ || !seen[$0]++' /etc/lightdm/lightdm.conf > /tmp/lightdm.conf.tmp \
-    && mv /tmp/lightdm.conf.tmp /etc/lightdm/lightdm.conf
+# ---------------------------------------------------- 4) session & autologin (via drop-in conf.d)
+# LightDM membaca: /etc/lightdm/lightdm.conf.d/*.conf LALU /etc/lightdm/lightdm.conf.
+# Karena main conf dibaca TERAKHIR (menimpa drop-in), semua key yang dulu pernah
+# kita sed-kan ke main conf dikomentari lagi supaya drop-in jadi sumber kebenaran.
+MAIN_CONF="/etc/lightdm/lightdm.conf"
+[ -f "$MAIN_CONF" ] || touch "$MAIN_CONF"
+cp -a "$MAIN_CONF" "${MAIN_CONF}.bak.$(date +%s)"
+sed -i -E 's@^(\s*(greeter-session|user-session|autologin-user|autologin-user-timeout|autologin-session)=.*)@# \1   # dinonaktifkan oleh apply-lightdm-greeter (pindah ke conf.d/50-anime-glass.conf)@' "$MAIN_CONF"
+
+# deteksi session yang tersedia (utamakan xfce)
+USER_SESSION=""
+for s in /usr/share/xsessions/*.desktop; do
+    [ -f "$s" ] || continue
+    n=$(basename "$s" .desktop)
+    [ "$n" = "xfce" ] && USER_SESSION="xfce" && break
+    [ -z "$USER_SESSION" ] && USER_SESSION="$n"
+done
+[ -n "$USER_SESSION" ] || USER_SESSION="xfce"
+
+DROPIN="/etc/lightdm/lightdm.conf.d/50-anime-glass.conf"
+mkdir -p /etc/lightdm/lightdm.conf.d
+{
+    echo "# Anime Glass — dibuat oleh scripts/apply-lightdm-greeter.sh"
+    echo "[LightDM]"
+    echo "greeter-session=lightdm-gtk-greeter"
+    echo ""
+    echo "[Seat:*]"
+    echo "user-session=$USER_SESSION"
+    if [ "$AUTOLOGIN" -eq 1 ]; then
+        echo "autologin-user=$REAL_USER"
+        echo "autologin-user-timeout=0"
+        echo "autologin-session=$USER_SESSION"
+    else
+        echo "autologin-user="
+    fi
+} > "$DROPIN"
+chmod 644 "$DROPIN"
+ok "Konfig seat -> $DROPIN (session: $USER_SESSION)"
+
+# grup 'autologin' WAJIB ada & user harus anggotanya — tanpa ini PAM menolak
+# autologin dan lightdm bisa gagal total saat boot (seat error).
 if [ "$AUTOLOGIN" -eq 1 ]; then
-    sed -i "s|^#\?autologin-user=.*|autologin-user=$REAL_USER|"  /etc/lightdm/lightdm.conf
-    sed -i 's|^#\?autologin-user-timeout=.*|autologin-user-timeout=0|' /etc/lightdm/lightdm.conf
-    sed -i 's|^#\?autologin-session=.*|autologin-session=xfce|'  /etc/lightdm/lightdm.conf
-    grep -q "^autologin-user=" /etc/lightdm/lightdm.conf || \
-        sed -i "0,/\[Seat:\*\]/s//&\nautologin-user=$REAL_USER\nautologin-user-timeout=0\nautologin-session=xfce/" /etc/lightdm/lightdm.conf
-    # autologin-session kadang tidak ada barisnya — tambahkan setelah autologin-user
-    grep -q "^autologin-session=" /etc/lightdm/lightdm.conf || \
-        sed -i "/^autologin-user=/a autologin-session=xfce" /etc/lightdm/lightdm.conf
+    getent group autologin >/dev/null 2>&1 || groupadd --system autologin
+    id -nG "$REAL_USER" 2>/dev/null | grep -qw autologin || usermod -aG autologin "$REAL_USER"
+    ok "user $REAL_USER masuk grup 'autologin'"
+fi
+
+if [ "$AUTOLOGIN" -eq 1 ]; then
     ok "login otomatis aktif untuk: $REAL_USER (matikan: sudo bash $0 --no-autologin)"
 else
-    sed -i 's|^#\?autologin-user=.*|autologin-user=|' /etc/lightdm/lightdm.conf
     ok "login otomatis dimatikan (tampil kartu login)"
 fi
 

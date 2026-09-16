@@ -422,6 +422,36 @@ Yang dipasang:
 > greeter ±20–30 MB. Uji tanpa reboot: `sudo systemctl restart lightdm`
 > (simpan pekerjaan dulu, sesi akan ditutup).
 
+### 🩺 Troubleshooting login screen
+
+**Cek dulu apakah LightDM hidup:**
+```bash
+systemctl status lightdm
+```
+
+**LightDM gagal / tidak tampil sama sekali?** Penyebab umum:
+1. **Autologin tanpa grup `autologin`** — PAM menolak autologin dan seat gagal.
+   Solusi (script versi baru melakukannya otomatis):
+   ```bash
+   sudo groupadd --system autologin
+   sudo usermod -aG autologin $USER
+   ```
+2. **`/etc/lightdm/lightdm.conf` rusak** (key duplikat/tercampur antar section).
+   Script versi baru tidak lagi menyuntik key ke main conf — semuanya lewat
+   drop-in `/etc/lightdm/lightdm.conf.d/50-anime-glass.conf`, dan key lama di
+   main conf dikomentari otomatis. Kembalikan backup `lightdm.conf.bak.*` bila
+   perlu.
+3. **Cek log penyebab persisnya:**
+   ```bash
+   sudo journalctl -b -u lightdm --no-pager | tail -30
+   sudo cat /var/log/lightdm/lightdm.log | tail -30
+   ```
+
+> Catatan: tampilan kartu login pakai selector widget asli greeter
+> (`#login_window`, `#content_frame`, `#buttonbox_frame`) sesuai sample resmi
+> Debian — versi CSS lama memakai selector yang salah sehingga kartu tampak
+> polos/gelap.
+
 ---
 
 ## 🧹 Batal / Uninstall
