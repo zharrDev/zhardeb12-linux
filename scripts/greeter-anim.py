@@ -38,6 +38,7 @@ import argparse
 import math
 import os
 import subprocess
+import io
 import sys
 import time
 import traceback
@@ -148,6 +149,12 @@ class Overlay(Gtk.Window):
         self.done = False
         self.watch = None
         self.idle_since = time.monotonic()   # anti-mash: abaikan input 300ms
+        self.linger_rect = None   # (x, y, w, h) overlay untuk jam menetap
+        self.linger_sub = None    # potongan wallpaper di bawah jam menetap
+        self.linger_img = None    # widget gambar jam menetap
+        self.cancel_active = False
+        self.cancel_ref = None
+        self.cancel_last_frac = None
 
         self.wall = self.load_pixbuf(a.wallpaper)
         self.card = self.load_pixbuf(a.card)
@@ -205,6 +212,7 @@ class Overlay(Gtk.Window):
         GLib.timeout_add(TICK_MS, self.on_tick)
         GLib.timeout_add_seconds(4, self.refresh_clock)
         GLib.timeout_add_seconds(1, self.on_watchdog)   # pengaman macet
+        GLib.timeout_add_seconds(1, self.tick_linger)   # detik jam menetap
         if not a.frame_at:                        # mode render frame: tidak perlu
             GLib.timeout_add_seconds(2, self.watch_greeter)   # cadangan
             self.start_greeter_watch()                        # deteksi langsung (xprop)
@@ -679,6 +687,8 @@ class Overlay(Gtk.Window):
         except Exception as e:
             log(self.a.log, 'linger: potongan wallpaper gagal (%s)' % e)
             return
+        self.linger_rect = (x, y, w, h)
+        self.linger_sub = sub
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         cr = cairo.Context(surf)
         Gdk.cairo_set_source_pixbuf(cr, sub, 0, 0)
@@ -696,11 +706,13 @@ class Overlay(Gtk.Window):
         win.set_accept_focus(False)
         win.set_app_paintable(True)
         win.move(x, y + self.oy)
-        win.add(Gtk.Image.new_from_pixbuf(pix))
+        img = Gtk.Image.new_from_pixbuf(pix)
+        win.add(img)
         win.connect('realize', self._click_through)
         win.connect('destroy', self.on_linger_destroy)
         win.show_all()
         self.linger = win
+        self.linger_img = img
         self.raise_floaters()
         log(self.a.log, 'jam menetap di (%d,%d) %dx%d' % (x, y + self.oy, w, h))
         if self.a.linger_ttl > 0:               # pratinjau: tutup sendiri nanti
@@ -708,8 +720,122 @@ class Overlay(Gtk.Window):
 
     def on_linger_destroy(self, _w):
         self.linger = None
+        self.linger_img = None
         if not self.back_armed:
             Gtk.main_quit()       # jalur normal (login / ttl): keluar
+
+    def repaint_linger(self, pix):
+        """Gambar ulang jam menetap di atas potongan wallpaper yang sama."""
+        x, y, w, h = self.linger_rect
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(surf)
+        Gdk.cairo_set_source_pixbuf(cr, self.linger_sub, 0, 0)
+        cr.paint()
+        Gdk.cairo_set_source_pixbuf(cr, pix, 0, 0)
+        cr.paint()
+        newpix = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
+        self.linger_img.set_from_pixbuf(newpix)
+
+    def place_linger(self):
+        """Hitung ulang posisi jam final lalu buat ulang window menetap."""
+        self.build_clock()
+        if self.pix_final is None:
+            return
+        self.show_linger()
+
+    def tick_linger(self):
+        """Detik jam menetap tetap hidup: render ulang tiap 1 detik."""
+        try:
+            if self.linger is None or not self.done:
+                return True
+            pix, fw, fh = self._time_pixbuf(int(self.a.clock_size))
+            if pix is None:
+                return True
+            x, y, w, h = self.linger_rect
+            if fw == w and fh == h:
+                self.pix_final = pix
+                self.repaint_linger(pix)
+            else:
+                self.back_armed = True
+                try:
+                    self.linger.destroy()
+                except Exception:
+                    pass
+                self.linger = None
+                self.back_armed = False
+                self.pix_final = pix
+                self.place_linger()
+        except Exception as e:
+            log(self.a.log, 'refresh jam menetap gagal: %s' % e)
+        return True
+
+    @staticmethod
+    def shot_diff_frac(ref, cur):
+        """Fraksi piksel berubah antara dua gambar PIL (0.0-1.0)."""
+        from PIL import ImageChops
+        diff = ImageChops.difference(ref, cur).convert('L')
+        hist = diff.histogram()
+        total = sum(hist)
+        if total <= 0:
+            return 0.0
+        changed = sum(i * n for i, n in enumerate(hist)) / 255.0
+        return changed / total
+
+    def shot_card(self):
+        """Potret area kartu greeter di layar (koordinat layar)."""
+        from PIL import Image
+        x = int(self.card_x)
+        y = int(self.card_y + self.oy)
+        w = int(self.card_w)
+        h = int(self.card_h)
+        r = subprocess.run(['import', '-window', 'root',
+                            '-crop', '%dx%d+%d+%d' % (w, h, x, y),
+                            'png:-'],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, timeout=10)
+        if r.returncode != 0 or not r.stdout:
+            raise RuntimeError('import gagal')
+        return Image.open(io.BytesIO(r.stdout)).convert('RGB')
+
+    def start_cancel_watch(self):
+        """Pantau efek tombol Cancel bawaan: kalau kartu berubah struktur
+        (bukan sekadar ketikan), flip otomatis ke tampilan awal."""
+        if self.cancel_active or not self.a.focus_window:
+            return
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            log(self.a.log, 'cancel-watch mati: python3-pil tidak ada')
+            return
+        self.cancel_active = True
+        self.cancel_ref = None
+        self.cancel_last_frac = None
+        GLib.timeout_add(800, self.cancel_tick)
+
+    def cancel_tick(self):
+        """Cek 800ms: perubahan besar + stabil = state kartu berganti."""
+        try:
+            if not self.cancel_active or self.linger is None or not self.done:
+                self.cancel_active = False
+                return False
+            cur = self.shot_card()
+            if self.cancel_ref is None:
+                self.cancel_ref = cur
+                return True
+            frac = self.shot_diff_frac(self.cancel_ref, cur)
+            last = self.cancel_last_frac
+            self.cancel_last_frac = frac
+            if frac > 0.03 and last is not None and abs(frac - last) < 0.02:
+                log(self.a.log, 'cancel terdeteksi (%.1f%% berubah): flip balik'
+                    % (frac * 100.0))
+                self.cancel_active = False
+                self.do_back()
+                return False
+            return True
+        except Exception as e:
+            log(self.a.log, 'cancel-watch berhenti: %s' % e)
+            self.cancel_active = False
+            return False
 
     # ------------------------------------------------------- tombol kembali
     # Setelah form tampil, tombol Cancel MILIK binary greeter (handler
@@ -1046,6 +1172,7 @@ class Overlay(Gtk.Window):
         self.show_back()
         self.restore_focus()     # langsung bisa mengetik password
         self.hide()              # disembunyikan (bukan close) supaya bisa flip balik
+        self.start_cancel_watch()
 
     # ---------------------------------------------------------------- fokus
     def steal_focus(self):

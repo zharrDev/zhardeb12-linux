@@ -250,8 +250,9 @@ menu menuitem:hover,
 #user_image {
     background-color: transparent;
     border-radius: 50%;
-    min-width: 126px;
-    min-height: 126px;
+    padding: 0;
+    min-width: 80px;    /* samakan pixel_size binary supaya ring memeluk gambar */
+    min-height: 80px;
 }
 #user_image_border {
     border-radius: 50%;
