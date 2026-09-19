@@ -36,6 +36,9 @@ command -v wmctrl >/dev/null 2>&1 || { echo "[gagal] wmctrl belum terpasang."; e
 
 # id jendela aktif — bisa di-override via env WIN (untuk test)
 AWID="${WIN:-$(xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | awk '/_NET_ACTIVE_WINDOW/ {for(i=1;i<=NF;i++){gsub(",","",$i); if($i ~ /^0x[0-9a-f]+$/ && $i != "0x0"){print $i; exit}}}')}"
+# rapikan nilai dari luar: xprop bisa mencetak daftar ("0x2c00003, 0x0") dan
+# spasi/koma akan membuat aritmetika bash meledak.
+AWID="$(printf '%s' "$AWID" | tr -d ' ,' | grep -oE '^0x[0-9a-fA-F]+' || true)"
 [[ -n "$AWID" ]] || { echo "[gagal] tidak ada jendela aktif."; exit 1; }
 
 case "$cmd" in
