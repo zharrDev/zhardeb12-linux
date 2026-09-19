@@ -521,10 +521,7 @@ Begitu ada tombol ditekan (atau diklik), dalam ±0,7 detik:
 | Jam besar | terbang **ke atas kartu** sambil mengecil (kurva halus: pelan → cepat → mendarat lembut) — berakhir persis di **atas border form** |
 | Jam final | versi tajam (tidak lagi ikut flip) muncul ber-crossfade di titik mendarat dengan sedikit "zoom-in", lalu **menetap** di sana |
 | Kartu | **FLIP** — skala vertikal 0.35→1 dengan sedikit overshoot (terbuka dari bawah) + slide `ease-out` 170px |
-| Perspektif | kartu melebar sesaat di tengah lintasan (terasa mendekat ke kamera) |
-| Kilau (sheen) | gradasi cahaya menyapu diagonal di permukaan kartu |
-| Glow | halo aksen biru→ungu (radial, bukan kotak) tumbuh lalu habis tepat saat kartu mendarat |
-| Wallpaper | zoom Ken-Burns + menggelap di tengah animasi, lalu **kembali persis normal** |
+| Wallpaper | zoom Ken-Burns + sedikit menggelap di tengah animasi, lalu **kembali persis normal** |
 | Titik menunggu | memudar sambil turun sedikit (crossfade) |
 
 Di akhir animasi **kartu kembali identik dengan yang digambar greeter** (sudah
@@ -536,8 +533,15 @@ jam yang kita tambahkan). Setelah itu overlay menutup diri dan digantikan
   menyatu sempurna dengan latar, tidak ada kotak yang terlihat;
 - **tidak bisa menerima fokus & klik** (area masuknya dikosongkan) — jadi kamu
   tetap bisa langsung mengetik password dan menekan tombol di kartu;
-- kalau **window greeter hilang** (artinya kamu berhasil login) window jam ini
-  menutup diri sendiri, jadi tidak ada jam "tertinggal" di desktop.
+- begitu kamu **berhasil login**, window greeter dihancurkan dan sesi desktop
+  mulai → overlay + jam ini **ikut hilang seketika (±0,1 detik)**; tidak ada
+  sisa gambar (termasuk jam) yang menempel di atas desktop. Dipantau dua jalur:
+  `xprop -spy` (berbasis kejadian, langsung) + cek tiap 2 detik sebagai cadangan.
+
+> **Flip-nya bersih.** Kartu digambar **solid (alpha penuh)** — tanpa fade-in,
+> glow, kilau, atau peregangan mendatar. Kartu login di layar login memang sudah
+> buram dari greeter (kaca frosted), jadi lapisan tambahan hanya membuatnya
+> terlihat "kabur" saat ngeflip. Sekarang murni flip (skala Y) + slide.
 
 Semua efek digambar dengan Cairo (tanpa blur realtime) dan jam besar + ekstra
 di-render **sekali** jadi pixbuf — saat idle repaint-nya cuma area kecil (titik
@@ -737,6 +741,10 @@ systemctl status lightdm
 
 ## 📌 Catatan release
 
+- **Login screen v5.1** — flip kartu dibersihkan (solid, tanpa fade-in/glow/
+  kilau/peregangan) dan transisi setelah login benar-benar bersih: overlay +
+  jam menetap hilang **±0,1 detik** setelah window greeter dihancurkan (dipantau
+  `xprop -spy` + cadangan 2 detik), jadi tidak ada yang menempel di desktop.
 - **Login screen v5** — latar login jadi **TAJAM** (tanpa blur; kartu tetap kaca
   buram), panel **tanpa jam**, dan alur baru: idle = wallpaper + **jam besar &
 tanggal di tengah** (tanpa teks "tekan enter", hanya tiga titik halus) → tekan

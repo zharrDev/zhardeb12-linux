@@ -9,14 +9,19 @@ Alur:
              sebagai penanda "menunggu".
              Panel asli (host/session/power) digambar dari potret greeter supaya
              tidak ada yang "muncul mendadak".
-  2. Tombol: kartu login masuk dari bawah (slide + FLIP + glow + sheen,
-             wallpaper zoom Ken-Burns). Caption/garis/tanggal memudar, lalu JAM
-             BESAR terbang ke ATAS KARTU dan mengecil ke ukuran akhir — jadi
+  2. Tombol: kartu login masuk dari bawah — slide + FLIP bersih (tanpa fade-in,
+             glow, kilau, atau peregangan; kartunya sudah buram dari greeter),
+             plus wallpaper zoom Ken-Burns. Caption/garis/tanggal memudar, lalu
+             JAM BESAR terbang ke ATAS KARTU dan mengecil ke ukuran akhir — jadi
              setelah form muncul, jam ada DI ATAS form (di atas border kartu).
   3. Selesai: overlay menutup diri dan digantikan window kecil yang MENETAPKAN
              jam di posisi itu (gambar latar 1:1 + jam), jadi jam tetap ada
              tanpa perlu menyentuh widget greeter. Fokus tombol dikembalikan ke
              window greeter supaya langsung bisa mengetik password.
+
+  Login sukses → window greeter dihancurkan dan sesi desktop mulai; overlay +
+  jam menetap ikut hilang SEKETIKA (dipantau lewat `xprop -spy`, cadangan cek
+  2 detik) supaya tidak ada sisa gambar yang menempel di atas desktop.
 
 Semua kegagalan bersifat aman: gambar gagal dibaca / GTK error → script keluar
 tanpa menampilkan apa pun, layar login tetap normal.
@@ -50,7 +55,7 @@ FLIP_START = 0.35       # skala Y awal (kartu "terlipat" dari bawah)
 ENTER_PART = 0.72       # 72% waktu = masuk, 28% terakhir = "mendarat"
 FLIP_PART = 0.50        # flip selesai di 50% waktu (lebih ringkas dari slide)
 ZOOM_PEAK = 1.055       # zoom wallpaper di tengah animasi (naik lalu kembali)
-DIM_PEAK = 0.20         # gelap maksimum wallpaper di tengah animasi
+DIM_PEAK = 0.14         # gelap maksimum wallpaper di tengah animasi
 EXTRA_FADE = (0.05, 0.40)     # caption/garis/tanggal memudar pada rentang ini
 HERO_FLY_PART = 0.80    # jam besar selesai terbang di 80% waktu
 HERO_FADE = (0.60, 0.90)      # jam besar memudar (menyerahkan ke jam final)
@@ -117,6 +122,7 @@ class Overlay(Gtk.Window):
         self.animating = False
         self.linger = None
         self.done = False
+        self.watch = None
 
         self.wall = self.load_pixbuf(a.wallpaper)
         self.card = self.load_pixbuf(a.card)
@@ -172,7 +178,9 @@ class Overlay(Gtk.Window):
         self.connect('destroy', self.on_destroy)
         GLib.timeout_add(TICK_MS, self.on_tick)
         GLib.timeout_add_seconds(4, self.refresh_clock)
-        GLib.timeout_add_seconds(2, self.watch_greeter)   # jam tidak boleh tertinggal
+        if not a.frame_at:                        # mode render frame: tidak perlu
+            GLib.timeout_add_seconds(2, self.watch_greeter)   # cadangan
+            self.start_greeter_watch()                        # deteksi langsung (xprop)
         if a.timeout > 0:                            # jaring aman: jangan sampai terkunci
             GLib.timeout_add_seconds(a.timeout, self.reveal)
         if a.auto > 0:                               # demo/pratinjau tanpa menekan tombol
@@ -550,63 +558,30 @@ class Overlay(Gtk.Window):
             cr.fill()
 
     def draw_card(self, cr, p):
-        """Kartu masuk: slide + FLIP (skala Y, poros bawah) + perspektif + glow + sheen."""
-        enter = min(1.0, p / ENTER_PART)
-        settle = ease_out_cubic(max(0.0, (p - ENTER_PART) / (1.0 - ENTER_PART)))
+        """Kartu masuk: slide + FLIP (skala Y, poros bawah) — bersih tanpa blur.
 
-        # slide: sedikit "melambat di akhir" (bukan melesat lalu diam)
-        e = ease_out_cubic(enter)
+        Sengaja TANPA fade-in, glow, kilau, atau peregangan mendatar: kartunya
+        sudah buram dari greeter (kaca frosted), jadi lapisan tambahan hanya
+        membuatnya terlihat "kabur" saat ngeflip. Sekarang kartu digambar solid
+        (alpha penuh) dan hanya ber-scale Y — murni flip.
+        """
+        enter = min(1.0, p / ENTER_PART)
+        e = ease_out_cubic(enter)                    # slide melambat di akhir
         dy = (1.0 - e) * SLIDE_PX
-        alpha = min(1.0, p * 9.0)                    # solid cepat, biar FLIP-nya terlihat
-        # FLIP: selesai di 55% waktu; dari 0.35 (terlipat) -> 1.0 dengan overshoot
+        # FLIP: selesai di 50% waktu; dari 0.35 (terlipat) -> 1.0 dengan overshoot
         flip = ease_out_back(min(1.0, p / FLIP_PART), 0.9)
         sy = FLIP_START + (1.0 - FLIP_START) * flip
-        # perspektif: melebar di tengah lintasan (kartu terasa mendekat ke kamera)
-        sx = 1.0 + 0.06 * math.sin(math.pi * min(1.0, p / FLIP_PART)) * (1.0 - settle * 0.5)
 
         cx = self.card_x + self.card_w / 2.0
         bottom = self.card_y + self.card_h + dy
 
-        # --- glow aksen di belakang kartu: muncul di tengah, habis di akhir.
-        # Gradasi radial (bukan kotak) supaya tidak terlihat seperti bingkai.
-        ga = 0.55 * (math.sin(math.pi * p) ** 0.8) if p < 1.0 else 0.0
-        if ga > 0.004:
-            gx = cx
-            gy = self.card_y + dy + self.card_h / 2.0
-            r = self.card_w * 0.60
-            gr = cairo.RadialGradient(gx, gy, r * 0.30, gx, gy, r)
-            gr.add_color_stop_rgba(0.0, ACCENT[0], ACCENT[1], ACCENT[2], 0.20 * ga)
-            gr.add_color_stop_rgba(0.55, ACCENT2[0], ACCENT2[1], ACCENT2[2], 0.09 * ga)
-            gr.add_color_stop_rgba(1.0, 0, 0, 0, 0.0)
-            cr.set_source(gr)
-            cr.rectangle(gx - r, gy - r, 2 * r, 2 * r)
-            cr.fill()
-
-        # --- kartu: transform (anchor di tepi bawah → terasa "terbuka" ke atas)
+        # poros di tepi bawah → kartu terasa "terbuka" ke atas
         cr.save()
         cr.translate(cx, bottom)
-        cr.scale(sx, sy)
+        cr.scale(1.0, sy)
         cr.translate(-cx, -bottom)
         Gdk.cairo_set_source_pixbuf(cr, self.card, self.card_x, self.card_y + dy)
-        cr.paint_with_alpha(alpha)
-
-        # --- kilau (sheen) menyapu permukaan kartu, ikut miring saat flip
-        if enter < 1.0:
-            sheen = ease_in_out_sine(min(1.0, p / 0.62))
-            bw = self.card_w * 0.26
-            bx = self.card_x - bw + (self.card_w + 2 * bw) * sheen
-            cr.save()
-            cr.rectangle(self.card_x, self.card_y + dy, self.card_w, self.card_h)
-            cr.clip()
-            g = cairo.LinearGradient(bx, self.card_y + dy, bx + bw,
-                                     self.card_y + dy + self.card_h)
-            amp = 0.26 * (1.0 - enter * 0.5) * alpha
-            g.add_color_stop_rgba(0.0, 1, 1, 1, 0.0)
-            g.add_color_stop_rgba(0.5, 1, 1, 1, amp)
-            g.add_color_stop_rgba(1.0, 0.80, 0.86, 1.0, 0.0)
-            cr.set_source(g)
-            cr.paint()
-            cr.restore()
+        cr.paint()
         cr.restore()
 
     # ------------------------------------------------- render 1 frame (dev)
@@ -693,29 +668,64 @@ class Overlay(Gtk.Window):
         self.reveal()
         return True                                     # tombol pertama "dipakai" untuk muncul
 
-    def watch_greeter(self):
-        """Kalau window greeter hilang (user sudah berhasil login) tutup jam
-        menetap & keluar — supaya jam tidak "tertinggal" di atas sesi desktop.
-
-        Hanya aktif kalau id window greeter diketahui (mode produksi). Kalau
-        xwininfo tidak ada / error, kita TIDAK mematikan apa pun: lebih baik
-        satu window kecil tersisa daripada mengganggu proses login.
-        """
+    # ------------------------------------------------- apa lagi yang "nempel"?
+    # Saat user berhasil login, window greeter dihancurkan dan sesi Xfce mulai.
+    # Jam menetap kita harus hilang PERSIS di saat itu supaya tidak ada sisa
+    # gambar di atas desktop. Dua jalur dipakai bersamaan:
+    #   1. `xprop -spy`  → kejadian, begitu window hilang langsung terdeteksi
+    #   2. cek tiap 2 detik → cadangan kalau xprop tak mendukung -spy
+    # Kalau alat bantunya error kita TIDAK mematikan apa pun (lebih baik satu
+    # window kecil tersisa daripada mengganggu proses login).
+    def start_greeter_watch(self):
         wid = self.a.focus_window
         if not wid:
-            return True
+            return
         try:
-            r = subprocess.run(['xwininfo', '-id', wid], capture_output=True, timeout=5)
+            self.watch = subprocess.Popen(['xprop', '-spy', '-id', wid],
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT, text=True)
+        except Exception as e:
+            log(self.a.log, 'xprop -spy tidak bisa jalan (%s) — pakai cek 2s' % e)
+            return
+        if self.watch.stdout is not None:
+            GLib.io_add_watch(self.watch.stdout, GLib.IO_IN | GLib.IO_HUP,
+                              self.on_greeter_io)
+
+    def on_greeter_io(self, src, cond):
+        try:
+            line = src.readline()
         except Exception:
+            line = ''
+        if not (cond & GLib.IO_HUP) and line and 'BadWindow' not in line:
+            return True                     # masih hidup, abaikan barisnya
+        if self.greeter_gone():             # konfirmasi dulu sebelum bertindak
+            self.quit_now('window greeter hilang (xprop)')
+            return False
+        return True                         # mis. xprop tak mendukung -spy
+
+    def watch_greeter(self):
+        """Cadangan periodik: pastikan jam tidak pernah tertinggal."""
+        if not self.a.focus_window:
             return True
-        if r.returncode == 0:
-            return True
-        log(self.a.log, 'window greeter %s hilang → tutup jam & keluar' % wid)
+        if self.greeter_gone():
+            self.quit_now('window greeter sudah tidak ada')
+            return False
+        return True
+
+    def greeter_gone(self):
+        try:
+            r = subprocess.run(['xwininfo', '-id', self.a.focus_window],
+                               capture_output=True, timeout=5)
+        except Exception:
+            return False
+        return r.returncode != 0
+
+    def quit_now(self, why):
+        log(self.a.log, '%s → tutup jam & keluar' % why)
         if self.linger is not None:
             self.linger.destroy()            # ini juga memicu Gtk.main_quit
         else:
             Gtk.main_quit()
-        return False
 
     def close_linger(self):
         """Tutup jam menetap (dipakai pratinjau: --linger-ttl)."""
@@ -730,6 +740,11 @@ class Overlay(Gtk.Window):
         # password; window jam (kalau ada) tidak bisa merebutnya karena
         # accept-focus dimatikan.
         self.restore_focus()
+        if getattr(self, 'watch', None) is not None:
+            try:
+                self.watch.terminate()      # jangan tinggalkan proses xprop
+            except Exception:
+                pass
         if self.linger is None:
             Gtk.main_quit()
 
