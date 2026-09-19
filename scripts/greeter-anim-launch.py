@@ -54,7 +54,12 @@ def log(msg):
 
 
 def read_conf():
-    """Baca /etc/lightdm/anime-glass-anim.conf (key=value) bila ada."""
+    """Baca /etc/lightdm/anime-glass-anim.conf (key=value) bila ada.
+
+    Komentar inline ('# ...') dipotong supaya 'enabled=1  # matikan ...'
+    terbaca sebagai '1' — bukan string panjang yang dianggap disabled.
+    Tanpa ini animasi selalu dilewati dengan log 'animasi dimatikan'.
+    """
     cfg = {}
     try:
         for line in open(CONF):
@@ -62,7 +67,8 @@ def read_conf():
             if not line or line.startswith('#') or '=' not in line:
                 continue
             k, v = line.split('=', 1)
-            cfg[k.strip()] = v.strip()
+            v = v.split('#', 1)[0].strip()
+            cfg[k.strip()] = v
     except OSError:
         pass
     return cfg

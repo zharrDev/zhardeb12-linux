@@ -201,19 +201,33 @@ if [ "$ANIM" -eq 1 ]; then
         cat > "$ANIM_CONF" <<'EOF'
 # Animasi layar login Anime Glass (dibaca oleh greeter-anim-launch.py)
 # Ubah di sini lalu reboot — tidak perlu mengedit script.
-enabled=1        # 0 = matikan animasi (kartu login langsung tampil)
-duration=700     # durasi kartu masuk+flip (milidetik) — 500 = cepat, 900 = dramatis
-timeout=120      # detik; kartu muncul sendiri bila tak ada tombol ditekan
-auto=0           # detik; >0 = kartu muncul sendiri setelah N detik (demo)
-hint_size=34     # ukuran font SPLASH di layar login (px)
-# hint=          # teks splash; KOSONG = tanpa teks (cuma titik-titik halus)
+# CATATAN: tulis sebagai 'key=value' polos tanpa komentar inline ('# ...'
+# di belakang nilai) — parser conf memotongnya, tapi nilai polos paling aman.
+# 0 = matikan animasi (kartu login langsung tampil)
+enabled=1
+# durasi kartu masuk+flip (milidetik) — 500 = cepat, 900 = dramatis
+duration=700
+# detik; kartu muncul sendiri bila tak ada tombol ditekan
+timeout=120
+# detik; >0 = kartu muncul sendiri setelah N detik (demo)
+auto=0
+# ukuran font SPLASH di layar login (px)
+hint_size=34
+# teks splash; KOSONG = tanpa teks (cuma titik-titik halus)
+# hint=
 # hint_sub=
-hero=1           # 1 = tampilkan JAM BESAR di tengah sebelum form muncul
-hero_size=94     # ukuran font jam besar di tengah (px)
-hero_caption=SELAMAT DATANG   # tulisan kecil di atas jam (kosongkan bila tak mau)
-clock_size=40    # ukuran jam setelah form muncul (di atas kartu login, px)
-clock_gap=54     # jarak jam ke tepi atas kartu login (px)
-stay=1           # 1 = jam tetap tampil di atas form setelah animasi
+# 1 = tampilkan JAM BESAR di tengah sebelum form muncul
+hero=1
+# ukuran font jam besar di tengah (px)
+hero_size=94
+# tulisan kecil di atas jam (kosongkan bila tak mau)
+hero_caption=SELAMAT DATANG
+# ukuran jam setelah form muncul (di atas kartu login, px)
+clock_size=40
+# jarak jam ke tepi atas kartu login (px)
+clock_gap=54
+# 1 = jam tetap tampil di atas form setelah animasi
+stay=1
 EOF
         chmod 644 "$ANIM_CONF"
     else
@@ -264,12 +278,11 @@ sed -i -E 's@^(\s*(greeter-session|user-session|autologin-user|autologin-user-ti
 # deteksi session yang tersedia (utamakan xfce)
 USER_SESSION=""
 for s in /usr/share/xsessions/*.desktop; do
-    [ -f "$s" ] || continue
-    n=$(basename "$s" .desktop)
-    [ "$n" = "xfce" ] && USER_SESSION="xfce" && break
-    [ -z "$USER_SESSION" ] && USER_SESSION="$n"
-done
-[ -n "$USER_SESSION" ] || USER_SESSION="xfce"
+    [ -f "$s" ] || continue        n=$(basename "$s" .desktop)
+        [ "$n" = "xubuntu" ] || [ "$n" = "xfce4" ] && USER_SESSION="xubuntu" && break
+        [ -z "$USER_SESSION" ] && USER_SESSION="$n"
+    done
+    [ -n "$USER_SESSION" ] || USER_SESSION="xubuntu"
 
 DROPIN="/etc/lightdm/lightdm.conf.d/50-anime-glass.conf"
 mkdir -p /etc/lightdm/lightdm.conf.d
