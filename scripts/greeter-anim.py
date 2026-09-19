@@ -466,6 +466,8 @@ class Overlay(Gtk.Window):
 
     def on_watchdog(self):
         """Paksa animasi selesai kalau tick macet (tidak pernah boleh gantung)."""
+        if self.done:
+            return True                    # sudah selesai: jangan ganggu lagi
         try:
             if self.animating and self.anim_start > 0:
                 limit = float(self.a.duration) / 1000.0 + 5.0
@@ -945,7 +947,7 @@ class Overlay(Gtk.Window):
     def _click_through(win):
         """Area masuk dikosongkan: klik di atas jam diteruskan ke greeter."""
         try:
-            win.input_shape_combine_region(cairo.Region())
+            win.input_shape_combine_region(cairo.Region(), 0, 0)
         except Exception as e:
             log(getattr(sys, '_anim_log', None), 'input shape dilewati: %s' % e)
 
@@ -978,7 +980,8 @@ class Overlay(Gtk.Window):
                     return False
                 self.area.queue_draw()                   # animasi: repaint penuh
         else:
-            self.area.queue_draw_area(*self.hint_area)   # idle: cuma area kecil
+            if not self.done:
+                self.area.queue_draw_area(*self.hint_area)   # idle: cuma area kecil
         return True
 
     @staticmethod
@@ -1019,7 +1022,7 @@ class Overlay(Gtk.Window):
                 return
             reg = cairo.Region(cairo.RectangleInt(0, 0, self.sw, self.h))
             reg.subtract(cairo.RectangleInt(0, 0, self.sw, min(h, self.h)))
-            win.input_shape_combine_region(reg)
+            win.input_shape_combine_region(reg, 0, 0)
             log(self.a.log, 'input dilubangi setinggi %dpx untuk panel' % h)
         except Exception as e:
             log(self.a.log, 'input shape dilewati: %s' % e)
@@ -1049,6 +1052,7 @@ class Overlay(Gtk.Window):
             if self._is_cancel(e):
                 self.animating = False
                 self.progress = 0.0
+                self.anim_start = 0.0       # supaya watchdog tidak pikir animasi masih jalan
                 self.area.queue_draw()
                 log(self.a.log, 'dibatalkan: kembali ke tampilan awal')
             return True
@@ -1167,6 +1171,7 @@ class Overlay(Gtk.Window):
         self.done = True
         self.animating = False    # penting: kalau tidak, watchdog mengeksekusi
                                   # finish() berulang tiap detik (tombol ‹ ganda)
+        self.anim_start = 0.0     # supaya watchdog tidak pikir animasi masih jalan
         if self.a.stay and self.pix_final is not None:
             self.show_linger()
         self.show_back()
