@@ -587,10 +587,10 @@ hint_size=34     # ukuran font splash — dipakai HANYA kalau hint diisi
 # hint=          # teks splash: KOSONG = tanpa teks (hanya tiga titik halus)
 # hint_sub=
 hero=1           # 1 = tampilkan JAM BESAR + tanggal di tengah sebelum form muncul
-hero_size=94     # ukuran font jam besar (px) — 72 kecil, 120 ekstra besar
+hero_size=120    # ukuran font jam besar (px) — 72 kecil, 120 ekstra besar
 hero_caption=SELAMAT DATANG   # tulisan kecil di atas jam (kosongkan bila tak mau)
-clock_size=40    # ukuran jam setelah form muncul (di atas kartu, px)
-clock_gap=54     # jarak jam ke tepi atas kartu login (px)
+clock_size=54    # ukuran jam setelah form muncul (di atas kartu, px)
+clock_gap=64     # jarak jam ke tepi atas kartu login (px)
 stay=1           # 1 = jam tetap menampil di atas form setelah animasi
 ```
 

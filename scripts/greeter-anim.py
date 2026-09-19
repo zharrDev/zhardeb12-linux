@@ -28,10 +28,11 @@ tanpa menampilkan apa pun, layar login tetap normal.
 
   python3 greeter-anim.py --wallpaper bg.jpg --card card.png \
       --card-x 645 --card-y 374 --card-top 452 [--panel-strip panel.png] \
-      [--top-gap 83] [--hero 1] [--hero-size 94] [--clock-size 40] \
-      [--clock-gap 46] [--stay 1] [--duration 700] [--auto 0]
+      [--top-gap 83] [--hero 1] [--hero-size 120] [--clock-size 54] \
+      [--clock-gap 64] [--stay 1] [--duration 700] [--auto 0]
 
   --auto N : kartu muncul sendiri setelah N detik (0 = nonaktif). Untuk demo.
+  Selama kartu naik, Esc / klik kanan = batal kembali ke tampilan awal.
 """
 import argparse
 import math
@@ -656,7 +657,31 @@ class Overlay(Gtk.Window):
             self.area.queue_draw_area(*self.hint_area)   # idle: cuma area kecil
         return True
 
-    def on_input(self, _w, _e):
+    @staticmethod
+    def _is_cancel(e):
+        """Esc / klik kanan = batalkan (kembali ke tampilan awal)."""
+        try:
+            if e.type == Gdk.EventType.KEY_PRESS:
+                return e.keyval == Gdk.KEY_Escape
+            if e.type == Gdk.EventType.BUTTON_PRESS:
+                return getattr(e, 'button', 0) == 3
+        except Exception:
+            pass
+        return False
+
+    def on_input(self, _w, e):
+        if self.done:
+            return False          # animasi selesai: overlay utama sudah tutup
+        if self.animating:
+            # Selama kartu naik: Esc/klik-kanan = batal ke tampilan awal
+            # (wallpaper + jam besar). Input lain: biarkan animasi lanjut.
+            if self._is_cancel(e):
+                self.animating = False
+                self.progress = 0.0
+                self.area.queue_draw()
+                log(self.a.log, 'dibatalkan: kembali ke tampilan awal')
+            return True
+        # Idle: input apa pun (termasuk klik kanan) memunculkan form.
         self.reveal()
         return True                                     # tombol pertama "dipakai" untuk muncul
 
@@ -795,10 +820,10 @@ def main():
     ap.add_argument('--panel-strip', default='', help='strip panel asli dari potret greeter')
     ap.add_argument('--top-gap', type=int, default=0)
     ap.add_argument('--hero', type=int, default=1, help='1 = tampilkan jam di tengah')
-    ap.add_argument('--hero-size', type=int, default=94, help='ukuran jam besar (px)')
+    ap.add_argument('--hero-size', type=int, default=120, help='ukuran jam besar (px)')
     ap.add_argument('--hero-caption', default='SELAMAT DATANG')
-    ap.add_argument('--clock-size', type=int, default=40, help='ukuran jam di atas form (px)')
-    ap.add_argument('--clock-gap', type=int, default=54, help='jarak jam ke tepi atas kartu (px)')
+    ap.add_argument('--clock-size', type=int, default=54, help='ukuran jam di atas form (px)')
+    ap.add_argument('--clock-gap', type=int, default=64, help='jarak jam ke tepi atas kartu (px)')
     ap.add_argument('--stay', type=int, default=1, help='1 = jam menetap di atas form')
     ap.add_argument('--linger-ttl', type=int, default=0,
                     help='detik; jam menetap menutup diri sendiri (0 = biarkan hidup)')
