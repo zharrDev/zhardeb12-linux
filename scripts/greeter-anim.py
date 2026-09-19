@@ -1039,6 +1039,8 @@ class Overlay(Gtk.Window):
     def finish(self):
         log(self.a.log, 'selesai: form tampil' + (' + jam menetap' if self.a.stay else ''))
         self.done = True
+        self.animating = False    # penting: kalau tidak, watchdog mengeksekusi
+                                  # finish() berulang tiap detik (tombol ‹ ganda)
         if self.a.stay and self.pix_final is not None:
             self.show_linger()
         self.show_back()
