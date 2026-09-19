@@ -462,6 +462,40 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin
 > wallpaper (1:1 sesuai resolusi layar) sehingga hasilnya menyatu dengan latar —
 > prinsip sama seperti dotfiles Hyprland (By-LeyzS) yang memakai blur + wallpaper.
 
+### ✨ Animasi: wallpaper dulu → kartu login muncul saat tombol ditekan
+
+Saat layar login muncul, yang tampil **cuma wallpaper + petunjuk**:
+`Tekan tombol apa saja untuk masuk`. Begitu ada tombol ditekan (atau diklik),
+**kartu login masuk dari bawah dengan halus** (slide + fade + sedikit efek
+flip), lalu lapisan animasinya menutup diri sehingga kartu login asli — yang
+posisinya persis sama — langsung bisa dipakai mengetik password.
+
+Aman by design: **autentikasi tetap milik `lightdm-gtk-greeter` bawaan**, lapisan
+animasi hanya melukis di atasnya. Kalau overlay gagal/tidak jalan, layar login
+langsung tampil normal; kalau tidak ada tombol ditekan, kartu muncul sendiri
+setelah 120 detik (jadi tidak mungkin "terkunci").
+
+```bash
+bash scripts/preview-login.sh --anim 20   # coba transisinya dulu (tekan tombol!), tutup: ESC
+```
+
+Setelan (ubah di sini, tidak perlu edit script) — `/etc/lightdm/anime-glass-anim.conf`:
+```ini
+enabled=1        # 0 = matikan animasi (kartu login langsung tampil)
+duration=520     # durasi kartu masuk dari bawah (milidetik)
+timeout=120      # detik; kartu muncul sendiri bila tak ada tombol ditekan
+# hint=Tekan tombol apa saja untuk masuk
+```
+
+Mematikan animasi: `sudo bash scripts/apply-lightdm-greeter.sh --no-anim`.
+Log-nya ada di `/var/log/anime-glass-anim.log`.
+
+> Kalau layar login bermasalah setelah deploy: `Ctrl+Alt+F2` → login TTY →
+> `sudo bash ~/Documents/zhardeb/scripts/apply-lightdm-greeter.sh --no-anim`
+> (atau `--no-autologin` untuk memunculkan kartu login biasa) lalu `sudo reboot`.
+> Semua berkas `*.conf` lama di-backup otomatis saat deploy, jadi selalu bisa
+> dibalikkan.
+
 ### 👀 Lihat hasilnya tanpa logout / reboot
 ```bash
 bash scripts/preview-login.sh        # tampil 20 detik di layar (ESC = tutup)
@@ -531,7 +565,15 @@ systemctl status lightdm
 ├── README.md                  # panduan ini
 ├── scripts/
 │   ├── apply-leyzs-panel.sh   # tata panel ala waybar By-LeyzS
-│   └── generate-panel-info.sh # tata ulang panel + conky
+│   ├── generate-panel-info.sh # tata ulang panel + conky
+│   ├── apply-lightdm-greeter.sh  # deploy layar login (CSS, wallpaper, avatar, animasi)
+│   ├── login-assets.py        # generator aset login (blur+vignette, tekstur kaca)
+│   ├── render-login-card.py   # render kartu login (UI greeter asli) jadi PNG
+│   ├── preview-login.py       # pratinjau layar login tanpa logout
+│   ├── preview-login.sh       # pemanggil pratinjau (--anim = coba animasi)
+│   ├── greeter-anim.py        # overlay animasi "wallpaper dulu -> kartu muncul"
+│   ├── greeter-anim-launch.py # penyiap overlay di sesi greeter (deteksi kartu/panel)
+│   └── greeter-anim-launch.sh # dipanggil LightDM (greeter-setup-script)
 ├── config/
 │   ├── wallpapers/            # koleksi wallpaper terpusat (originals/)
 │   ├── picom/picom.conf       # konfigurasi glassmorphism ringan

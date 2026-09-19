@@ -14,6 +14,8 @@
 #   - Tekstur kaca blur (frosted glass) -> glass-panel.jpg + glass-bar.jpg
 #     (potongan wallpaper persis di area kartu & panel, blur pre-baked)
 #   - Avatar user -> /usr/share/pixmaps/anime-glass-avatar.png + ~/.face
+#   - Animasi layar login: wallpaper dulu, kartu muncul saat tombol ditekan
+#     (overlay di atas greeter asli; matikan dengan --no-anim)
 #   - Font Inter + tema/ikon system-wide (senada sesi desktop)
 #   - Konfig greeter: kartu TENGAH layar, jam+tanggal Indonesia, panel glass
 #   - Login otomatis (matikan dengan --no-autologin)
@@ -25,7 +27,14 @@ THEME_DIR="/usr/share/themes/anime-glass-greeter/gtk-3.0"
 GREETER_CONF="/etc/lightdm/lightdm-gtk-greeter.conf"
 LOGIN_BG_DIR="/usr/share/backgrounds/anime-glass"
 AUTOLOGIN=1
-[ "${1:-}" = "--no-autologin" ] && AUTOLOGIN=0
+ANIM=1
+for arg in "$@"; do
+    case "$arg" in
+        --no-autologin) AUTOLOGIN=0 ;;
+        --no-anim)      ANIM=0 ;;      # tanpa animasi "tekan tombol untuk munculnya kartu"
+    esac
+done
+ANIM_DIR="/usr/local/share/anime-glass"
 
 say()  { printf '\033[1;36m[login]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[ok]\033[0m %s\n' "$*"; }
@@ -141,6 +150,35 @@ else
     printf '\033[1;33m[!]\033[0m avatar tidak ditemukan: %s\n' "$AVATAR_SRC" >&2
 fi
 
+# ------------------------------- 2c) animasi "wallpaper dulu, kartu menyusul"
+# Greeter tetap milik lightdm (autentikasi tidak disentuh); overlay animasinya
+# cuma menyembunyikan kartu sebentar, menunggu tombol ditekan, lalu memunculkan
+# kartu itu dari bawah. Kalau overlay gagal, layar login tampil seperti biasa.
+if [ "$ANIM" -eq 1 ]; then
+    mkdir -p "$ANIM_DIR"
+    install -m 755 "$SRC_DIR/scripts/greeter-anim.py"        "$ANIM_DIR/greeter-anim.py"
+    install -m 755 "$SRC_DIR/scripts/greeter-anim-launch.py" "$ANIM_DIR/greeter-anim-launch.py"
+    install -m 755 "$SRC_DIR/scripts/greeter-anim-launch.sh" "$ANIM_DIR/greeter-anim-launch.sh"
+    # konfigurasi animasi (tidak menimpa kalau sudah pernah diubah user)
+    ANIM_CONF="/etc/lightdm/anime-glass-anim.conf"
+    if [ ! -f "$ANIM_CONF" ]; then
+        cat > "$ANIM_CONF" <<'EOF'
+# Animasi layar login Anime Glass (dibaca oleh greeter-anim-launch.py)
+# Ubah di sini lalu reboot — tidak perlu mengedit script.
+enabled=1        # 0 = matikan animasi (kartu login langsung tampil)
+duration=520     # durasi kartu masuk dari bawah (milidetik)
+timeout=120      # detik; kartu muncul sendiri bila tak ada tombol ditekan
+# hint=Tekan tombol apa saja untuk masuk
+EOF
+        chmod 644 "$ANIM_CONF"
+    fi
+    ok "Animasi login -> $ANIM_DIR (wallpaper dulu, tekan tombol -> kartu muncul)"
+    ok "Setelan animasi -> $ANIM_CONF (enabled, duration, timeout, hint)"
+else
+    rm -rf "$ANIM_DIR"
+    ok "Animasi login dimatikan (--no-anim)"
+fi
+
 # ---------------------------------------------------- 3) konfig greeter
 [ -f "$GREETER_CONF" ] && cp -a "$GREETER_CONF" "${GREETER_CONF}.bak.$(date +%s)" || true
 sed -e "s|__LOGIN_BG__|${LOGIN_BG_DIR}/login-bg.jpg|g" \
@@ -189,6 +227,9 @@ mkdir -p /etc/lightdm/lightdm.conf.d
     echo ""
     echo "[Seat:*]"
     echo "user-session=$USER_SESSION"
+    if [ "$ANIM" -eq 1 ]; then
+        echo "greeter-setup-script=$ANIM_DIR/greeter-anim-launch.sh"
+    fi
     if [ "$AUTOLOGIN" -eq 1 ]; then
         echo "autologin-user=$REAL_USER"
         echo "autologin-user-timeout=0"
