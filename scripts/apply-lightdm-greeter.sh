@@ -11,8 +11,11 @@
 #   - Tema greeter custom (CSS glass) -> /usr/share/themes/anime-glass-greeter
 #   - Wallpaper login -> /usr/share/backgrounds/anime-glass/login-bg.jpg
 #     (prioritas: config/wallpapers/login/, fallback: wallpaper aktif desktop)
+#   - Tekstur kaca blur (frosted glass) -> glass-panel.jpg + glass-bar.jpg
+#     (potongan wallpaper persis di area kartu & panel, blur pre-baked)
+#   - Avatar user -> /usr/share/pixmaps/anime-glass-avatar.png + ~/.face
 #   - Font Inter + tema/ikon system-wide (senada sesi desktop)
-#   - Konfig greeter: jam+tanggal Indonesia, panel glass, kartu login glass
+#   - Konfig greeter: kartu TENGAH layar, jam+tanggal Indonesia, panel glass
 #   - Login otomatis (matikan dengan --no-autologin)
 #
 set -euo pipefail
@@ -93,9 +96,79 @@ mkdir -p "$LOGIN_BG_DIR"
 install -m 644 "$LOGIN_SRC" "$LOGIN_BG_DIR/login-bg.jpg"
 ok "Wallpaper -> $LOGIN_BG_DIR/login-bg.jpg ($(basename "$LOGIN_SRC"))"
 
+# ---------------------------- 2b) tekstur kaca (frosted glass) + avatar user
+# Greeter TIDAK punya compositor, jadi blur tidak bisa realtime. Solusinya:
+# potong area kartu & panel dari wallpaper lalu blur di muka (pre-baked).
+# Hasilnya efek frosted glass yang menyatu dengan wallpaper, tetap ringan.
+AVATAR_SRC="$SRC_DIR/config/lightdm/avatar/anime-avatar.png"
+AVATAR_SYS="/usr/share/pixmaps/anime-glass-avatar.png"
+
+gen_glass() {                       # gen_glass <wallpaper> <output> <panel|bar>
+    local src="$1" out="$2" kind="$3" tmp
+    tmp="$(mktemp /tmp/anime-glass-XXXXXX.jpg)"
+    if command -v convert >/dev/null 2>&1; then
+        # normalisasi ke bingkai layar 1920x1080 (cover, dari tengah)
+        convert "$src" -resize 1920x1080^ -gravity center -extent 1920x1080 +repage "$tmp" 2>/dev/null \
+            || cp "$src" "$tmp"
+        if [ "$kind" = "bar" ]; then
+            convert "$tmp" -gravity north -crop 1920x48+0+0 +repage -blur 0x20 -quality 90 "$out" 2>/dev/null || true
+        else
+            convert "$tmp" -gravity center -crop 560x350+0+0 +repage -blur 0x26 -quality 90 "$out" 2>/dev/null || true
+        fi
+    elif python3 -c 'import PIL' 2>/dev/null; then
+        python3 - "$src" "$out" "$kind" <<'PY' || true
+import sys
+from PIL import Image, ImageFilter
+src, out, kind = sys.argv[1], sys.argv[2], sys.argv[3]
+im = Image.open(src).convert('RGB')
+sr, tr = im.width / im.height, 1920 / 1080
+if sr > tr:                                  # sumber lebih lebar -> potong kiri/kanan
+    w = int(im.height * tr)
+    im = im.crop(((im.width - w) // 2, 0, (im.width - w) // 2 + w, im.height))
+else:                                        # sumber lebih tinggi -> potong atas/bawah
+    h = int(im.width / tr)
+    im = im.crop((0, (im.height - h) // 2, im.width, (im.height - h) // 2 + h))
+im = im.resize((1920, 1080), Image.LANCZOS)
+if kind == 'bar':
+    patch, radius = im.crop((0, 0, 1920, 48)), 20
+else:
+    patch = im.crop((680, 365, 680 + 560, 365 + 350))
+    radius = 26
+patch.filter(ImageFilter.GaussianBlur(radius)).save(out, quality=90)
+PY
+    fi
+    rm -f "$tmp"
+    [ -f "$out" ] || cp "$src" "$out"   # jaring terakhir: tanpa blur, berkas tetap ada
+}
+
+gen_glass "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-panel.jpg" panel
+# panel atas = band paling atas wallpaper, supaya kaca panel "menyatu"
+gen_glass "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-bar.jpg" bar
+ok "Tekstur kaca -> glass-panel.jpg (kartu) + glass-bar.jpg (panel)"
+
+# Avatar anime untuk user login (juga dipakai greeter via default-user-image)
+if [ -f "$AVATAR_SRC" ]; then
+    install -m 644 "$AVATAR_SRC" "$AVATAR_SYS"
+    ok "Avatar login -> $AVATAR_SYS"
+    FACE="/home/$REAL_USER/.face"
+    if [ -d "/home/$REAL_USER" ]; then
+        if [ -f "$FACE" ]; then
+            cp -a "$FACE" "${FACE}.bak.$(date +%s)"
+            rm -f "$FACE"
+        fi
+        install -o "$REAL_USER" -g "$(id -gn "$REAL_USER")" -m 644 "$AVATAR_SRC" "$FACE"
+        rm -f "/home/$REAL_USER/.face.icon"
+        ln -sf .face "/home/$REAL_USER/.face.icon"
+        ok "Avatar user -> $FACE (+ .face.icon; yang lama di-backup)"
+    fi
+else
+    printf '\033[1;33m[!]\033[0m avatar tidak ditemukan: %s\n' "$AVATAR_SRC" >&2
+fi
+
 # ---------------------------------------------------- 3) konfig greeter
 [ -f "$GREETER_CONF" ] && cp -a "$GREETER_CONF" "${GREETER_CONF}.bak.$(date +%s)" || true
 sed -e "s|__LOGIN_BG__|${LOGIN_BG_DIR}/login-bg.jpg|g" \
+    -e "s|__AVATAR__|${AVATAR_SYS}|g" \
     -e "s|__USER__|${REAL_USER}|g" \
     "$SRC_DIR/config/lightdm/lightdm-gtk-greeter.conf" > "$GREETER_CONF"
 chmod 644 "$GREETER_CONF"

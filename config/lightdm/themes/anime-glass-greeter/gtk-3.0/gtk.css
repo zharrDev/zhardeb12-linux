@@ -1,143 +1,172 @@
 /* ============================================================================
-   lightdm-gtk-greeter.css — Anime Glass login theme v3 "Aurora Card"
+   lightdm-gtk-greeter.css — Anime Glass login theme v4 "Frosted Aurora"
    ============================================================================
-   Desain: kartu login glass premium dengan BORDER GRADASI aksen biru→ungu,
-   tombol pill, entry glow, panel jam serasi — di atas wallpaper anime.
+   Desain: kartu login BESAR di TENGAH layar, efek kaca buram (frosted glass)
+   asli — memakai backdrop blur yang di-bake dari wallpaper (karena greeter
+   TIDAK punya compositor, blur tidak bisa realtime), di atasnya tint navy
+   transparan + border gradasi biru→ungu→lavender.
 
    Selector mengikuti widget ASLI lightdm-gtk-greeter 2.0.8:
      #panel_window, #login_window, #content_frame, #buttonbox_frame,
-     #user_image, #user_image_border, #greeter_infobar
+     #user_image, #user_image_border, #username_entry, #password_entry,
+     #login_button, #greeter_infobar
    GTK3 3.24 (Debian 12). Tanpa compositor — semua efek via CSS murni.
    ============================================================================ */
 
 /* --- Dasar greeter: wallpaper terlihat, teks putih lembut --- */
 .lightdm-gtk-greeter {
     background-color: transparent;
-    color: #e8eaf6;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    color: #eef1ff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
 /* ================= PANEL ATAS (jam, host, session, power) ================= */
+/* Kaca buram tipis: crop atas wallpaper yang di-blur, ditint navy transparan. */
 #panel_window {
-    background-color: rgba(15, 18, 32, 0.62);
+    background-color: rgba(14, 17, 30, 0.58);
+    background-image: linear-gradient(rgba(14, 17, 30, 0.58), rgba(14, 17, 30, 0.58)),
+                      url('/usr/share/backgrounds/anime-glass/glass-bar.jpg');
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
     border: none;
-    border-radius: 14px;
-    padding: 3px 10px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.40),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 4px 14px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.42),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 #panel_window .menubar,
 #panel_window .menubar > .menuitem {
     background-color: transparent;
-    color: #e8eaf6;
+    color: #f2f4ff;
     font-weight: 600;
 }
 #panel_window .menubar > .menuitem:hover {
-    background-color: rgba(95, 162, 206, 0.28);
-    border-radius: 8px;
+    background-color: rgba(95, 162, 206, 0.30);
+    border-radius: 9px;
     color: #ffffff;
 }
 #panel_window button,
 #panel_window .button {
     background-color: transparent;
     border: none;
-    color: #e8eaf6;
-    border-radius: 8px;
-    padding: 3px 10px;
-    transition: all 160ms ease;
+    color: #f2f4ff;
+    border-radius: 9px;
+    padding: 4px 11px;
+    transition: all 170ms ease;
 }
 #panel_window button:hover,
 #panel_window .button:hover {
-    background-color: rgba(95, 162, 206, 0.32);
+    background-color: rgba(95, 162, 206, 0.34);
     color: #ffffff;
 }
 #shutdown_button.button { color: #f38ba8; }
 #restart_button.button  { color: #fab387; }
 
-/* ================= KARTU LOGIN — border gradasi aksen ================= */
+/* ============ KARTU LOGIN — glass buram, BESAR, di tengah layar ============ */
 #login_window,
 #shutdown_dialog,
 #restart_dialog {
     border: 2px solid transparent;
-    border-radius: 18px;
-    color: #e8eaf6;
-    padding: 6px;
-    background-color: rgba(22, 25, 42, 0.90);
-    /* lapisan 1: isi kartu (padding-box) | lapisan 2: gradasi border (border-box) */
-    background-image: linear-gradient(rgba(22, 25, 42, 0.92), rgba(22, 25, 42, 0.92)),
-                      linear-gradient(135deg, #5fa2ce 0%, #7a6fd4 55%, #b4befe 100%);
-    background-origin: border-box, border-box;
-    background-clip: padding-box, border-box;
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55),
-                0 0 0 6px rgba(95, 162, 206, 0.07);
+    border-radius: 24px;
+    color: #eef1ff;
+    padding: 10px;
+    background-color: rgba(20, 23, 40, 0.68);
+    /* lapisan (atas→bawah):
+         1. tint navy transparan  — supaya teks selalu kontras
+         2. glass-panel.jpg       — backdrop blur hasil crop wallpaper aktif
+         3. gradasi aksen         — dipakai sebagai BORDER (border-box)       */
+    background-image: linear-gradient(rgba(19, 22, 41, 0.56), rgba(23, 26, 48, 0.66)),
+                      url('/usr/share/backgrounds/anime-glass/glass-panel.jpg'),
+                      linear-gradient(140deg, #5fa2ce 0%, #7a6fd4 55%, #b4befe 100%);
+    background-origin: padding-box, padding-box, border-box;
+    background-clip: padding-box, padding-box, border-box;
+    background-size: cover, cover, cover;
+    background-position: center, center, center;
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    box-shadow: 0 26px 64px rgba(0, 0, 0, 0.58),
+                0 0 0 9px rgba(95, 162, 206, 0.06),
+                inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
-/* --- Bagian atas kartu: avatar + user + entry --- */
+/* --- Isi kartu: lega supaya kartu terlihat besar & tenang --- */
 #content_frame {
     background-color: transparent;
-    padding: 20px 28px 14px;
+    padding: 40px 64px 20px;
 }
 
 /* --- Bagian bawah kartu: tombol --- */
 #buttonbox_frame {
     background-color: transparent;
     border-style: none;
-    border-bottom-left-radius: 16px;
-    border-bottom-right-radius: 16px;
-    padding: 2px 28px 20px;
+    border-bottom-left-radius: 22px;
+    border-bottom-right-radius: 22px;
+    padding: 6px 64px 30px;
 }
 
 /* --- Label & combobox user --- */
 #login_window label {
-    color: #e8eaf6;
+    color: #eef1ff;
     text-shadow: none;
 }
 #login_window #user_combobox,
 #login_window #user_combobox label {
     color: #ffffff;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 19px;
+    min-width: 260px;
 }
 #login_window #user_combobox .arrow {
-    color: rgba(180, 190, 254, 0.9);
+    color: rgba(180, 190, 254, 0.95);
 }
 
-/* --- ENTRY PASSWORD: pill dengan glow aksen saat fokus --- */
+/* --- ENTRY PASSWORD: pill besar dengan glow aksen saat fokus --- */
 #login_window entry,
-#login_window .entry {
-    background-color: rgba(10, 12, 22, 0.80);
-    border: 1px solid rgba(122, 111, 212, 0.45);
+#login_window .entry,
+#username_entry,
+#password_entry {
+    background-color: rgba(9, 11, 20, 0.62);
+    background-image: none;
+    border: 1px solid rgba(122, 111, 212, 0.42);
     border-radius: 999px;
-    color: #f2f4ff;
+    color: #f4f6ff;
     caret-color: #b4befe;
-    padding: 9px 16px;
-    font-size: 13px;
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.45);
-    transition: all 180ms ease;
+    padding: 13px 24px;
+    font-size: 15px;
+    min-height: 24px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.42),
+                inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: all 200ms ease;
 }
 #login_window entry:focus,
-#login_window .entry:focus {
-    border-color: rgba(95, 162, 206, 0.95);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.45),
-                0 0 0 3px rgba(95, 162, 206, 0.28),
-                0 0 14px rgba(95, 162, 206, 0.30);
+#login_window .entry:focus,
+#username_entry:focus,
+#password_entry:focus {
+    border-color: rgba(110, 175, 220, 0.98);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.42),
+                0 0 0 4px rgba(95, 162, 206, 0.24),
+                0 0 20px rgba(95, 162, 206, 0.34);
 }
 
-/* --- AVATAR: ring gradasi --- */
+/* --- AVATAR: bulat besar, ring gradasi ganda, glow lembut --- */
 #user_image {
-    background-color: rgba(10, 12, 22, 0.85);
+    background-color: transparent;
     border-radius: 50%;
-    padding: 2px;
+    min-width: 126px;
+    min-height: 126px;
 }
 #user_image_border {
     border-radius: 50%;
-    background-color: transparent;
-    box-shadow: 0 0 0 2px rgba(95, 162, 206, 0.75),
-                0 0 0 4px rgba(122, 111, 212, 0.35),
-                0 6px 18px rgba(0, 0, 0, 0.50);
+    background-color: rgba(12, 14, 26, 0.55);
+    padding: 5px;
+    box-shadow: 0 0 0 2px rgba(95, 162, 206, 0.85),
+                0 0 0 5px rgba(122, 111, 212, 0.30),
+                0 0 26px rgba(95, 162, 206, 0.35),
+                0 10px 26px rgba(0, 0, 0, 0.50);
 }
 
-/* --- TOMBOL: pill gradasi aksen --- */
+/* --- TOMBOL: pill besar gradasi aksen --- */
 #login_window button,
 #login_window .button,
 #shutdown_dialog button,
@@ -147,35 +176,53 @@
     color: #ffffff;
     border: none;
     border-radius: 999px;
-    padding: 8px 20px;
+    padding: 11px 30px;
+    min-height: 20px;
     font-weight: 700;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
-    transition: all 160ms ease;
-    box-shadow: 0 4px 14px rgba(95, 162, 206, 0.35);
+    font-size: 13px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+    transition: all 180ms ease;
+    box-shadow: 0 6px 18px rgba(95, 162, 206, 0.38),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 #login_window button:hover,
 #login_window .button:hover,
 #shutdown_dialog button:hover,
 #restart_dialog button:hover {
-    background-image: linear-gradient(135deg, #74b4dd 0%, #8c82e2 100%);
-    box-shadow: 0 6px 20px rgba(122, 111, 212, 0.50);
+    background-image: linear-gradient(135deg, #77b8e0 0%, #8f85e6 100%);
+    box-shadow: 0 9px 26px rgba(122, 111, 212, 0.55),
+                inset 0 1px 0 rgba(255, 255, 255, 0.26);
     color: #ffffff;
 }
 #login_window button:active,
 #login_window .button:active {
     background-image: linear-gradient(135deg, #4a92c2 0%, #6a5fc4 100%);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.40);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
 }
 #login_window button:focus,
 #login_window .button:focus,
 #login_window button.default {
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.38);
     outline: none;
+}
+/* tombol Cancel (dialog power) = glass netral, bukan aksen */
+#login_window #cancel_button,
+#shutdown_dialog #cancel_button,
+#restart_dialog #cancel_button {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    color: #e6e9ff;
+}
+#login_window #cancel_button:hover,
+#shutdown_dialog #cancel_button:hover,
+#restart_dialog #cancel_button:hover {
+    background-color: rgba(255, 255, 255, 0.18);
 }
 
 /* ================= INFOBAR (password salah dll) ================= */
 #greeter_infobar {
-    border-radius: 12px;
+    border-radius: 14px;
     background-color: rgba(48, 36, 56, 0.95);
     box-shadow: inset 0 0 0 1px rgba(243, 139, 168, 0.55);
     color: #f38ba8;
@@ -188,18 +235,37 @@
 #login_window .menu,
 #panel_window .menu {
     background-color: rgba(22, 25, 42, 0.97);
-    border-radius: 12px;
-    padding: 4px;
+    border-radius: 14px;
+    padding: 5px;
     box-shadow: inset 0 0 0 1px rgba(95, 162, 206, 0.35),
-                0 10px 30px rgba(0, 0, 0, 0.50);
+                0 12px 32px rgba(0, 0, 0, 0.52);
 }
 #login_window .menu .menuitem,
 #panel_window .menu .menuitem {
-    color: #e8eaf6;
-    border-radius: 8px;
+    color: #eef1ff;
+    border-radius: 9px;
+    padding: 6px 10px;
 }
 #login_window .menu .menuitem:hover,
 #panel_window .menu .menuitem:hover {
     background-color: #5fa2ce;
     color: #ffffff;
+}
+
+/* ================= DIALOG POWER (shutdown/restart/logout) ================ */
+#shutdown_dialog #content_frame,
+#restart_dialog #content_frame {
+    padding: 26px 30px 14px;
+}
+#shutdown_dialog #buttonbox_frame,
+#restart_dialog #buttonbox_frame {
+    padding: 4px 30px 22px;
+}
+#power_title {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 15px;
+}
+#power_text {
+    color: rgba(238, 241, 255, 0.82);
 }

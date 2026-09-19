@@ -250,7 +250,8 @@ sesuai permintaan. Gambar asset lainnya ditempatkan di lokasi yang cocok:
 | `影.jpeg` | **Banner conky** (atas kartu anime-glass) |
 | `968133251138558907.jpeg` | **Avatar conky** (lingkaran kecil di header kartu) |
 | `1147432811330550518.jpeg` | **Background terminal kitty** (dim, `background_opacity 0.45`) |
-| `config/wallpapers/login/anime-login-bg.jpg` | **Background layar login LightDM** (1920×1080) |
+| `config/wallpapers/login/anime-login-bg.jpg` | **Background layar login LightDM** (1920×1080) + sumber tekstur kaca kartu login |
+| `影-removebg-preview.png` | **Avatar user di kartu login LightDM** (bulat 160px, sudah disiapkan di `config/lightdm/avatar/`) |
 
 Banner & avatar di-generate oleh `update-wallpaper.sh` ke
 `~/.config/conky/anime-banner.png` & `anime-avatar.png`.
@@ -399,11 +400,13 @@ xscreensaver. Installer menulis override autostart
 
 ---
 
-## 🔐 Tampilan Login Screen (LightDM)
+## 🔐 Tampilan Login Screen (LightDM) — v4 "Frosted Aurora"
 
-Layar login dibuat senada dengan desktop: wallpaper anime + kartu login glass
-(gelap transparan, sudut membulat, border aksen biru), panel jam+tanggal di atas
-(format Indonesia), tema & ikon yang sama dengan sesi desktop.
+Layar login dibuat senada dengan desktop: wallpaper anime + **kartu login kaca
+buram (frosted glass) di TENGAH layar**, ukuran besar, sudut membulat 24px,
+border gradasi biru→ungu→lavender, **avatar anime bulat** untuk user, entry
+password & tombol pill dengan glow aksen, plus panel jam+tanggal di atas
+(format Indonesia).
 
 ```bash
 sudo bash scripts/apply-lightdm-greeter.sh                # pasang (login otomatis aktif)
@@ -413,10 +416,38 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin # tampil kartu login (
 Yang dipasang:
 - `/usr/share/backgrounds/anime-glass/login-bg.jpg` — dari `config/wallpapers/login/`
   (fallback: wallpaper aktif `anime-1920x1080.jpg`)
+- `/usr/share/backgrounds/anime-glass/glass-panel.jpg` + `glass-bar.jpg` —
+  **tekstur kaca hasil blur** dari wallpaper (potongan area kartu 560×350 dan
+  band atas panel 1920×48), dibuat otomatis oleh script dengan `convert`
+  (fallback: `python3 + Pillow`)
+- `/usr/share/pixmaps/anime-glass-avatar.png` — **avatar user** untuk kartu login,
+  sekaligus dipasang ke `~/.face` (yang lama di-backup `~/.face.bak.<tanggal>`)
 - `/usr/share/themes/anime-glass-greeter/` — tema CSS glass khusus greeter
-- Tema GTK + ikon **Tela-circle-blue-dark** + font **Inter** system-wide
-- `lightdm-gtk-greeter.conf` — jam `Senin, 16 September 2026 • 14:30`, panel glass
+- Tema GTK + ikon **Tela-circle-blue-dark** + font **Inter 11** system-wide
+- `lightdm-gtk-greeter.conf` — kartu `position=50%,center`, jam
+  `Senin, 16 September 2026 • 14:30`, panel glass di atas
 - Konfigurasi lama otomatis dibackup (`*.bak.<tanggal>`)
+
+**Ganti avatar (mis. pakai wajah lain):** ganti satu file ini lalu deploy ulang.
+```bash
+cd ~/Documents/zhardeb
+cp ~/gambar-avatar-baru.png config/lightdm/avatar/anime-avatar-source.png
+python3 - <<'PY'
+from PIL import Image, ImageDraw
+src = Image.open("config/lightdm/avatar/anime-avatar-source.png").convert("RGBA")
+s = min(src.size); sq = src.crop(((src.width-s)//2, (src.height-s)//2, (src.width-s)//2+s, (src.height-s)//2+s))
+b = sq.resize((640, 640), Image.LANCZOS)
+m = Image.new("L", (640, 640), 0); ImageDraw.Draw(m).ellipse((0, 0, 639, 639), fill=255)
+b.putalpha(m); b.resize((160, 160), Image.LANCZOS).save("config/lightdm/avatar/anime-avatar.png")
+PY
+sudo bash scripts/apply-lightdm-greeter.sh --no-autologin
+```
+
+> Kenapa blur-nya "dibakar" (pre-baked) bukan realtime? Greeter LightDM jalan
+> **tanpa compositor**, jadi blur realtime tidak mungkin dan tidak ada efek
+> berat saat login. Tekstur kaca dipotong **tepat di posisi kartu/panel** pada
+> wallpaper (1:1, layar 1920×1080) sehingga hasilnya menyatu dengan latar —
+> prinsip sama seperti dotfiles Hyprland (By-LeyzS) yang memakai blur + wallpaper.
 
 > Ringan: greeter GTK polos tanpa efek berat — hanya CSS & transparansi, RAM
 > greeter ±20–30 MB. Uji tanpa reboot: `sudo systemctl restart lightdm`
