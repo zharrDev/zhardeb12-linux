@@ -29,8 +29,9 @@ CORE_T = 25              # ambang beda untuk kartu (kuat)
 SOFT_T = 6               # ambang beda untuk bayangan/soft edge
 SHADOW_PAD = 80          # perluasan area bayangan (px) — harus lebih besar dari
                          # blur shadow greeter, kalau tidak tepinya terpotong
-STRIP_EXTRA = 30         # strip panel dilebihkan ke bawah: ikut bayangan panel,
-                         # jadi serah-terima ke greeter asli tidak "pop"
+STRIP_EXTRA = 60         # strip panel dilebihkan ke bawah: ikut SELURUH bayangan
+                         # pil header (blur 26 + offset 10), jadi serah-terima ke
+                         # greeter asli tidak "pop" (bayangan terpotong)
 
 
 def log(msg):

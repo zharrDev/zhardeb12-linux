@@ -57,10 +57,12 @@ FLIP_PART = 0.50        # flip selesai di 50% waktu (lebih ringkas dari slide)
 ZOOM_PEAK = 1.055       # zoom wallpaper di tengah animasi (naik lalu kembali)
 DIM_PEAK = 0.14         # gelap maksimum wallpaper di tengah animasi
 EXTRA_FADE = (0.05, 0.40)     # caption/garis/tanggal memudar pada rentang ini
-HERO_FLY_PART = 0.80    # jam besar selesai terbang di 80% waktu
-HERO_FADE = (0.60, 0.90)      # jam besar memudar (menyerahkan ke jam final)
-FINAL_IN = (0.55, 0.95)       # jam final (tajam) muncul pada rentang ini
-FINAL_ZOOM = 1.10       # jam final mulai sedikit lebih besar lalu menetap
+HERO_FLY_PART = 0.78    # jam besar selesai terbang di 78% waktu
+HERO_FADE = (0.54, 0.76)      # jam besar memudar…
+FINAL_IN = (0.66, 0.86)       # …dan jam final (tajam) menyusul di titik yang
+                              # sama. Tumpang-tindihnya cuma di 0,66–0,76 dan
+                              # saat itu posisi/skala keduanya sudah sama, jadi
+                              # tidak ada gambar dobel — hanya terasa "menajam"
 ACCENT = (95 / 255.0, 162 / 255.0, 206 / 255.0)      # #5fa2ce
 ACCENT2 = (122 / 255.0, 111 / 255.0, 212 / 255.0)    # #7a6fd4
 LAVENDER = (0.80, 0.84, 1.0)
@@ -206,43 +208,35 @@ class Overlay(Gtk.Window):
         return l, l.get_pixel_size()
 
     def _time_pixbuf(self, fs, sec_fs=None):
-        """Pixbuf: jam 'HH:MM' (putih tebal) + detik aksen di kanannya."""
+        """Pixbuf: jam 'HH:MM' (putih tebal) + detik aksen di kanannya.
+
+        Sengaja TAJAM: tanpa halo/glow (halo itu yang membuat jam terlihat
+        kabur). Hanya bayangan gelap tipis 2px ke bawah supaya tetap terbaca di
+        atas wallpaper yang terang.
+        """
         now = time.localtime()
         hhmm = time.strftime('%H:%M', now)
         sec = time.strftime('%S', now)
         sec_fs = sec_fs or max(13, int(fs * 0.26))
-        glow = max(18, int(fs * 0.34))          # ruang untuk halo di sekeliling teks
+        pad = 4                                  # ruang tipis untuk bayangan
         scratch = cairo.ImageSurface(cairo.FORMAT_ARGB32, 8, 8)
         scr = cairo.Context(scratch)
         tl, (tw, th) = self.lay(scr, hhmm, '%s Bold %dpx' % (FONT_UI, fs))
         sl, (sw2, sh2) = self.lay(scr, sec, '%s SemiBold %dpx' % (FONT_UI, sec_fs))
 
-        w = tw + int(sw2 * 0.55) + sw2 + glow * 2
-        h = th + glow * 2
+        w = tw + int(sw2 * 0.55) + sw2 + pad * 2
+        h = th + pad * 2
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         cr = cairo.Context(surf)
-        tx, ty = glow, glow
-        # halo lembut (radial) supaya jam tetap terbaca di atas wallpaper apapun
-        gx, gy = tx + tw / 2.0, ty + th * 0.5
-        gr = cairo.RadialGradient(gx, gy, 2, gx, gy, max(tw, th) * 0.72)
-        gr.add_color_stop_rgba(0.0, ACCENT[0], ACCENT[1], ACCENT[2], 0.18)
-        gr.add_color_stop_rgba(0.55, ACCENT2[0], ACCENT2[1], ACCENT2[2], 0.08)
-        gr.add_color_stop_rgba(1.0, 0, 0, 0, 0.0)
-        cr.set_source(gr)
-        cr.rectangle(0, 0, w, h)
-        cr.fill()
-        # bayangan gelap tipis + isi putih
-        for ox, oy, al in ((0, 2, 0.22), (0, 0, 0.55)):
-            cr.save()
-            cr.move_to(tx + ox, ty + oy)
-            cr.set_source_rgba(0.02, 0.03, 0.07, al)
-            PangoCairo.show_layout(cr, tl)
-            cr.restore()
+        tx, ty = pad, pad
+        cr.move_to(tx, ty + 2)
+        cr.set_source_rgba(0.02, 0.03, 0.07, 0.40)      # bayangan tipis, bukan blur
+        PangoCairo.show_layout(cr, tl)
         cr.move_to(tx, ty)
-        cr.set_source_rgba(1, 1, 1, 0.98)
+        cr.set_source_rgba(1, 1, 1, 1.0)
         PangoCairo.show_layout(cr, tl)
         cr.move_to(tx + tw + int(sw2 * 0.55), ty + th - sh2 - th * 0.12)
-        cr.set_source_rgba(*LAVENDER, 0.92)
+        cr.set_source_rgba(*LAVENDER, 1.0)
         PangoCairo.show_layout(cr, sl)
         pix = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
         return pix, tw, th
@@ -498,19 +492,17 @@ class Overlay(Gtk.Window):
             cr.paint_with_alpha(alpha)
             cr.restore()
 
-        # --- jam FINAL (tajam, Poppins pada ukuran akhir) di atas kartu
+        # --- jam FINAL: digambar 1:1 (tanpa skala/transform apa pun) supaya
+        # benar-benar tajam. Big clock sudah memudar HABIS sebelum ini muncul
+        # (lihat HERO_FADE vs FINAL_IN), jadi tidak pernah ada dua jam
+        # bertumpuk yang terlihat seperti gambar dobel/kabur.
         if p > 0.0 and self.pix_final is not None:
             al = ease_out_cubic(span(p, *FINAL_IN))
             if al > 0.004:
-                zz = 1.0 + (FINAL_ZOOM - 1.0) * (1.0 - ease_out_cubic(
-                    min(1.0, p / max(0.01, FINAL_IN[1]))))
                 fx, fy, fw, fh = self.final_rect
                 cr.save()
-                cr.translate(fx + fw / 2.0, fy + fh / 2.0)
-                cr.scale(zz, zz)
-                cr.translate(-fw / 2.0, -fh / 2.0)
-                Gdk.cairo_set_source_pixbuf(cr, self.pix_final, 0, 0)
-                cr.paint_with_alpha(al)
+                Gdk.cairo_set_source_pixbuf(cr, self.pix_final, fx, fy)
+                cr.paint_with_alpha(al)          # tanpa transform = piksel 1:1
                 cr.restore()
 
     def draw_hint(self, cr, fade):

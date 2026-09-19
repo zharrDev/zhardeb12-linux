@@ -20,28 +20,40 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
-/* ================= PANEL ATAS (jam, host, session, power) ================= */
-/* Kaca buram tipis: crop atas wallpaper yang di-blur, ditint navy transparan. */
+/* ============ HEADER ATAS — PIL kaca buram (host | session | power) ======== */
+/* Mengambang (margin) + radius penuh (radius ≥ tinggi/2) = bentuk pil.
+   Kacanya: crop band atas wallpaper yang DI-BLUR (glass-bar.jpg, blur 14px)
+   ditint navy transparan — greeter tanpa compositor, jadi blur "dibakar" di
+   muka. Ukuran/posisi pil ini otomatis ikut terekam sebagai strip panel saat
+   animasi layar login berjalan, jadi tampilannya sama di kedua fase. */
 #panel_window {
-    background-color: rgba(14, 17, 30, 0.58);
-    background-image: linear-gradient(rgba(14, 17, 30, 0.58), rgba(14, 17, 30, 0.58)),
+    margin: 10px 20px 0 20px;                 /* mengambang dari tepi layar */
+    padding: 5px 24px;
+    border: none;
+    border-radius: 26px;                      /* ≥ tinggi/2 → ujung membulat pil */
+    background-color: rgba(12, 15, 28, 0.44);
+    background-image: linear-gradient(rgba(12, 15, 28, 0.46), rgba(16, 20, 36, 0.34)),
                       url('/usr/share/backgrounds/anime-glass/glass-bar.jpg');
     background-size: cover, cover;
     background-position: center, center;
     background-repeat: no-repeat, no-repeat;
-    border: none;
-    border-radius: 18px;
-    padding: 6px 18px;
-    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.42),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.10),
-                inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.44),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.13),
+                inset 0 1px 0 rgba(255, 255, 255, 0.20);
 }
 #panel_window .menubar,
-#panel_window .menubar > .menuitem {
+#panel_window .menubar > .menuitem,
+#panel_window .menubar > .menuitem > label,
+#panel_window .menubar > .menuitem label,
+#panel_window .menuitem,
+#panel_window label {
     background-color: transparent;
-    color: #f2f4ff;
-    font-weight: 600;
+    color: #eef2ff;
+    font-family: Poppins, Inter, sans-serif;   /* teks header pakai Poppins */
+    font-weight: 500;
     font-size: 13px;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.50);
 }
 
 /* --- JAM: sengaja TIDAK dipakai di panel ---
@@ -67,17 +79,17 @@
     background-color: transparent;
 }
 #panel_window .menubar > .menuitem:hover {
-    background-color: rgba(95, 162, 206, 0.30);
-    border-radius: 9px;
+    background-color: rgba(95, 162, 206, 0.28);
+    border-radius: 14px;                      /* hover ikut bentuk pil */
     color: #ffffff;
 }
 #panel_window button,
 #panel_window .button {
     background-color: transparent;
     border: none;
-    color: #f2f4ff;
-    border-radius: 9px;
-    padding: 4px 11px;
+    color: #eef2ff;
+    border-radius: 14px;
+    padding: 4px 12px;
     transition: all 170ms ease;
 }
 #panel_window button:hover,

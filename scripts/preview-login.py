@@ -89,8 +89,8 @@ def prepare_assets(tmp):
     # kartu tetap kaca buram) supaya pratinjau = yang muncul saat login asli
     subprocess.run([sys.executable, helper, '--src', bg_src, '--outdir', tmp,
                     '--size', '%dx%d' % (geo.width, geo.height),
-                    '--bg-blur', '0', '--card-blur', '10', '--dim', '0.94',
-                    '--vignette', '0.62'], check=True)
+                    '--bg-blur', '0', '--card-blur', '10', '--bar-blur', '14',
+                    '--dim', '0.94', '--vignette', '0.62'], check=True)
 
     # CSS produksi, tapi url()-nya diarahkan ke aset lokal
     css = open(CSS_SRC, encoding='utf-8').read()
@@ -136,12 +136,12 @@ class ScreenParts:
     """Pembuat potongan layar login: panel atas + kartu (widget asli greeter)."""
 
     def build_panel(self):
+        # margin/radius/tint pil diatur oleh CSS tema (sama dengan produksi),
+        # bukan di kode — supaya pratinjau tidak "beda sendiri" dari greeter asli.
         panel = Gtk.EventBox()
         panel.set_name('panel_window')
         panel.set_halign(Gtk.Align.FILL)
-        panel.set_margin_top(6)
-        panel.set_margin_start(6)
-        panel.set_margin_end(6)
+        panel.set_valign(Gtk.Align.START)
 
         # Panel TANPA jam: persis seperti config/lightdm/lightdm-gtk-greeter.conf
         # (indicators=~host;~spacer;~session;~power). Jam digambar overlay animasi

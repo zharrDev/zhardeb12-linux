@@ -450,17 +450,20 @@ Yang dipasang:
   menonjol). Versi mentahnya juga diarsipkan sebagai `login-bg-sharp.jpg`.
   Sumber: `config/wallpapers/login/` (fallback: wallpaper aktif desktop)
 - `/usr/share/backgrounds/anime-glass/glass-panel.jpg` + `glass-bar.jpg` —
-  **tekstur kaca** (potongan area kartu 560×350 dan band atas panel 48px,
-  di-blur ringan 10px) diambil dari wallpaper yang sama, jadi kartu & panel
-  tetap terasa kaca di atas latar yang tajam
+  **tekstur kaca** dari wallpaper yang sama: kartu (crop area kartu 560×350,
+  blur `--card-blur 10`) dan **pil header** (band atas 48px, blur sendiri
+  `--bar-blur 14`) — jadi kartu & header tetap terasa kaca buram walau latar
+  layar sengaja dibiarkan tajam
 - Generator asetnya satu tempat: `scripts/login-assets.py` — dipakai baik oleh
   script deploy **maupun** preview. Nada blurnya bisa disetel:
   ```bash
   python3 scripts/login-assets.py --src wallpaper.jpg --outdir /tmp/out \
-      --bg-blur 0 --card-blur 10 --dim 0.94 --vignette 0.62 --size 1920x1080
+      --bg-blur 0 --card-blur 10 --bar-blur 14 --dim 0.94 --vignette 0.62 \
+      --size 1920x1080
   #  --bg-blur 0   = latar TAJAM (tanpa blur)  ← dipakai sekarang
   #  --bg-blur 16  = latar makin lembut (kalau mau gaya dreamy lagi)
   #  --card-blur   = kekaburan tekstur kaca kartu (10 = kaca halus)
+  #  --bar-blur    = kekaburan tekstur pil header (14 = kaca buram)
   #  --dim         = pengali kecerahan latar   --vignette 0.62 = sudut lebih gelap
   ```
   Ganti wallpaper login? Taruh saja gambar landscape baru di
@@ -470,9 +473,12 @@ Yang dipasang:
   sekaligus dipasang ke `~/.face` (yang lama di-backup `~/.face.bak.<tanggal>`)
 - `/usr/share/themes/anime-glass-greeter/` — tema CSS glass khusus greeter
 - Tema GTK + ikon **Tela-circle-blue-dark** + font **Inter 11** system-wide
-- `lightdm-gtk-greeter.conf` — kartu `position=50%,center`, panel glass di atas
-  (`indicators=~host;~spacer;~session;~power`) — **jam TIDAK di panel**, jam
-digambar overlay animasi (lihat bawah)
+- `lightdm-gtk-greeter.conf` — kartu `position=50%,center`, dan **HEADER
+  berbentuk PIL kaca** di atas: mengambang (`margin: 10px 20px`), radius 26px
+  (≥ tinggi/2 → ujung membulat), tekstur `glass-bar.jpg` (blur 14px) + tint navy
+  transparan 0.44, teks **Poppins 13px**. Isinya
+  `indicators=~host;~spacer;~session;~power` — **jam TIDAK di panel**, jam
+  digambar overlay animasi (lihat bawah)
 - Konfigurasi lama otomatis dibackup (`*.bak.<tanggal>`)
 
 **Jam di layar login:** saat idle jam tampil **besar di tengah** (font Poppins,
@@ -519,7 +525,7 @@ Begitu ada tombol ditekan (atau diklik), dalam ±0,7 detik:
 | --- | --- |
 | Tanggal + caption | memudar lebih dulu (jadi saat form muncul tinggal jam) |
 | Jam besar | terbang **ke atas kartu** sambil mengecil (kurva halus: pelan → cepat → mendarat lembut) — berakhir persis di **atas border form** |
-| Jam final | versi tajam (tidak lagi ikut flip) muncul ber-crossfade di titik mendarat dengan sedikit "zoom-in", lalu **menetap** di sana |
+| Jam final | versi **tajam** (digambar 1:1, tanpa skala) muncul menyusul di titik & ukuran yang sama, lalu **menetap** di sana |
 | Kartu | **FLIP** — skala vertikal 0.35→1 dengan sedikit overshoot (terbuka dari bawah) + slide `ease-out` 170px |
 | Wallpaper | zoom Ken-Burns + sedikit menggelap di tengah animasi, lalu **kembali persis normal** |
 | Titik menunggu | memudar sambil turun sedikit (crossfade) |
@@ -538,9 +544,12 @@ jam yang kita tambahkan). Setelah itu overlay menutup diri dan digantikan
   sisa gambar (termasuk jam) yang menempel di atas desktop. Dipantau dua jalur:
   `xprop -spy` (berbasis kejadian, langsung) + cek tiap 2 detik sebagai cadangan.
 
-> **Flip-nya bersih.** Kartu digambar **solid (alpha penuh)** — tanpa fade-in,
-> glow, kilau, atau peregangan mendatar. Kartu login di layar login memang sudah
-> buram dari greeter (kaca frosted), jadi lapisan tambahan hanya membuatnya
+> **Jamnya tajam, flip-nya bersih.** Jam digambar **tanpa halo/glow** (halo itu
+> yang membuatnya terlihat kabur) — hanya bayangan gelap 2px supaya tetap
+> terbaca; saat pindah dari jam besar ke jam final pun posisi/ukuran keduanya
+> sudah sama, jadi tidak ada gambar dobel. Kartu digambar **solid (alpha penuh)**
+> — tanpa fade-in, glow, kilau, atau peregangan mendatar. Kartu login memang
+> sudah buram dari greeter (kaca frosted), jadi lapisan tambahan hanya membuatnya
 > terlihat "kabur" saat ngeflip. Sekarang murni flip (skala Y) + slide.
 
 Semua efek digambar dengan Cairo (tanpa blur realtime) dan jam besar + ekstra
@@ -741,6 +750,12 @@ systemctl status lightdm
 
 ## 📌 Catatan release
 
+- **Login screen v5.2** — **HEADER jadi PIL kaca**: mengambang dengan ujung
+  membulat penuh, tekstur `glass-bar.jpg` yang kini **di-blur tersendiri**
+  (`--bar-blur 14`, dulu ikut latar sehingga jadi tajam), tint lebih transparan,
+  dan teks **Poppins**. Jam juga dibersihkan: **tanpa halo/glow** (biang "kabur")
+  dan jam final digambar 1:1 sehingga tajam; serah-terima jam besar → jam final
+  kini di titik yang sama tanpa gambar dobel.
 - **Login screen v5.1** — flip kartu dibersihkan (solid, tanpa fade-in/glow/
   kilau/peregangan) dan transisi setelah login benar-benar bersih: overlay +
   jam menetap hilang **±0,1 detik** setelah window greeter dihancurkan (dipantau

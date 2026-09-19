@@ -58,7 +58,8 @@ if [ "$MODE" = "anim" ]; then
     say "menyiapkan aset + potret mock layar login…"
     # parameter SAMA dengan deploy: latar tajam, kartu tetap kaca buram
     python3 "$SRC_DIR/scripts/login-assets.py" --src "$SRC" --outdir "$TMP" \
-        --size "$SIZE" --bg-blur 0 --card-blur 10 --dim 0.94 --vignette 0.62 >/dev/null
+        --size "$SIZE" --bg-blur 0 --card-blur 10 --bar-blur 14 \
+        --dim 0.94 --vignette 0.62 >/dev/null
     python3 "$SRC_DIR/scripts/preview-login.py" --mock-shot "$TMP/shot.png" \
         --bg "$TMP/login-bg.jpg" --assets "$TMP" >/dev/null
 

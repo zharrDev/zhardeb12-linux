@@ -5,14 +5,15 @@ Menghasilkan 3 berkas di --outdir:
   login-bg.jpg      wallpaper layar login: di-blur (opsional) + sedikit digelapkan
                     + vignette (tepi lebih gelap) supaya kartu login menonjol
   glass-panel.jpg   potongan TEPAT di area kartu (560x350) -> tekstur kaca kartu
-  glass-bar.jpg     potongan band paling atas (1920x48) -> tekstur kaca panel
+  glass-bar.jpg     potongan band paling atas (1920x48) yang DI-BLUR sendiri
+                    (--bar-blur) -> tekstur kaca header/pil atas
 
 Blur kartu bisa lebih ringan daripada background (--card-blur) sehingga kartu
 terlihat seperti kaca yang "menampakkan" detail, sementara latar lembut.
 
   python3 login-assets.py --src bg.jpg --outdir /tmp/out [--bg-blur 18] \
-                          [--card-blur 8] [--dim 0.90] [--vignette 0.62] \
-                          [--size 1920x1080]
+                          [--card-blur 8] [--bar-blur 14] [--dim 0.90] \
+                          [--vignette 0.62] [--size 1920x1080]
 
 --bg-blur 0   = latar TAJAM (tanpa blur). Kartu tetap bisa kaca buram lewat
                 --card-blur tersendiri (kartu & latar memang terpisah).
@@ -38,6 +39,8 @@ def parse_args():
     p.add_argument('--bg-blur', type=float, default=18.0,
                    help='0 = latar tajam (tanpa blur)')
     p.add_argument('--card-blur', type=float, default=8.0)
+    p.add_argument('--bar-blur', type=float, default=14.0,
+                   help='kekaburan tekstur header/pil atas (independen dari latar)')
     p.add_argument('--dim', type=float, default=0.90, help='pengali kecerahan background')
     p.add_argument('--vignette', type=float, default=0.62,
                    help='kecerahan di sudut layar (1.0 = tanpa vignette)')
@@ -73,7 +76,7 @@ def vignette_mask(w, h, floor):
     return m.point(lambda v: int(255 * (1.0 - (1.0 - floor) * (v / 255.0))))
 
 
-def build_with_pillow(src, outdir, bg_blur, card_blur, dim, vig_floor):
+def build_with_pillow(src, outdir, bg_blur, card_blur, bar_blur, dim, vig_floor):
     from PIL import Image, ImageFilter
     sharp = cover(Image.open(src).convert('RGB'), FS_W, FS_H)
 
@@ -93,13 +96,17 @@ def build_with_pillow(src, outdir, bg_blur, card_blur, dim, vig_floor):
         card = card.filter(ImageFilter.GaussianBlur(card_blur))
     card.save(os.path.join(outdir, 'glass-panel.jpg'), quality=90, optimize=True)
 
-    # 3) panel atas: band paling atas dari BACKGROUND (biar menyatu)
-    bg.crop((0, 0, FS_W, BAR_H)).save(os.path.join(outdir, 'glass-bar.jpg'),
-                                      quality=90, optimize=True)
+    # 3) header/pil atas: band paling atas dari gambar TAJAM, lalu di-blur
+    #    tersendiri — jadi header tetap terlihat seperti kaca buram walau
+    #    latar layar login sengaja dibiarkan tajam.
+    bar = sharp.crop((0, 0, FS_W, BAR_H))
+    if bar_blur > 0:
+        bar = bar.filter(ImageFilter.GaussianBlur(bar_blur))
+    bar.save(os.path.join(outdir, 'glass-bar.jpg'), quality=90, optimize=True)
 
 
 # ---------------------------------------------------------------- ImageMagick
-def build_with_convert(src, outdir, bg_blur, card_blur, dim, vig_floor):
+def build_with_convert(src, outdir, bg_blur, card_blur, bar_blur, dim, vig_floor):
     tmp = os.path.join(outdir, '.sharp.jpg')
     subprocess.run(['convert', src, '-resize', '%dx%d^' % (FS_W, FS_H),
                     '-gravity', 'center', '-extent', '%dx%d' % (FS_W, FS_H),
@@ -114,8 +121,10 @@ def build_with_convert(src, outdir, bg_blur, card_blur, dim, vig_floor):
                     '-crop', '%dx%d+0+0' % (PANEL_W, PANEL_H), '+repage',
                     '-blur', '0x%g' % card_blur,
                     os.path.join(outdir, 'glass-panel.jpg')], check=True)
-    subprocess.run(['convert', os.path.join(outdir, 'login-bg.jpg'),
-                    '-gravity', 'north', '-crop', '%dx%d+0+0' % (FS_W, BAR_H), '+repage',
+    # header: potong dari gambar TAJAM lalu blur sendiri (kaca buram)
+    subprocess.run(['convert', tmp, '-gravity', 'north',
+                    '-crop', '%dx%d+0+0' % (FS_W, BAR_H), '+repage',
+                    '-blur', '0x%g' % bar_blur,
                     os.path.join(outdir, 'glass-bar.jpg')], check=True)
     os.remove(tmp)
 
@@ -127,12 +136,14 @@ def main():
     os.makedirs(a.outdir, exist_ok=True)
     try:
         import PIL  # noqa: F401
-        build_with_pillow(a.src, a.outdir, a.bg_blur, a.card_blur, a.dim, a.vignette)
-        print('[assets] Pillow: background (blur %g + vignette %g) + tekstur kaca' %
-              (a.bg_blur, a.vignette))
+        build_with_pillow(a.src, a.outdir, a.bg_blur, a.card_blur, a.bar_blur,
+                          a.dim, a.vignette)
+        print('[assets] Pillow: latar (blur %g + vignette %g), kartu %g, header %g' %
+              (a.bg_blur, a.vignette, a.card_blur, a.bar_blur))
     except ImportError:
         if shutil.which('convert'):
-            build_with_convert(a.src, a.outdir, a.bg_blur, a.card_blur, a.dim, a.vignette)
+            build_with_convert(a.src, a.outdir, a.bg_blur, a.card_blur, a.bar_blur,
+                               a.dim, a.vignette)
             print('[assets] ImageMagick: background (blur %g) + tekstur kaca' % a.bg_blur)
         else:
             print('[assets] Pillow & ImageMagick tidak ada — salin apa adanya', file=sys.stderr)

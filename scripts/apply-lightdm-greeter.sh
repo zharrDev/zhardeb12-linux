@@ -153,9 +153,11 @@ fi
 
 if command -v python3 >/dev/null 2>&1 && [ -f "$SRC_DIR/scripts/login-assets.py" ]; then
     # Latar layar login TAJAM (bg-blur 0) — wallpaper tampil apa adanya, hanya
-    # diberi vignette tipis supaya kartu kaca & jam tetap menonjol.
+    # diberi vignette tipis. Kartu (card-blur) dan pil header (bar-blur) tetap
+    # punya blur sendiri supaya terlihat seperti kaca buram di atas latar tajam.
     python3 "$SRC_DIR/scripts/login-assets.py" --src "$LOGIN_SRC" --outdir "$LOGIN_BG_DIR" \
-        --size "$SCREEN_SIZE" --bg-blur 0 --card-blur 10 --dim 0.94 --vignette 0.62 \
+        --size "$SCREEN_SIZE" --bg-blur 0 --card-blur 10 --bar-blur 14 \
+        --dim 0.94 --vignette 0.62 \
         || say "gagal membuat aset login — pakai wallpaper apa adanya"
 fi
 # jaring terakhir: pastikan ketiga berkas ada (tanpa blur pun tetap tampil)
