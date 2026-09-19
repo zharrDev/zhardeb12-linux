@@ -40,6 +40,7 @@ import os
 import subprocess
 import sys
 import time
+import traceback
 
 import cairo
 import gi
@@ -118,12 +119,28 @@ def rounded_path(cr, x, y, w, h, r):
     cr.close_path()
 
 
+def _fail_open(fn):
+    """Decorator callback GTK: exception -> fail-open, overlay tidak boleh
+    mengunci layar login (macet fullscreen + makan semua input)."""
+    def wrap(self, *args, **kwargs):
+        try:
+            return fn(self, *args, **kwargs)
+        except Exception:
+            try:
+                self.fail_open(fn.__name__)
+            except Exception:
+                pass
+            return False
+    return wrap
+
+
 class Overlay(Gtk.Window):
     def __init__(self, a):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.a = a
         self.progress = 0.0
         self.animating = False
+        self.anim_start = 0.0     # monotonic saat animasi mulai (untuk watchdog)
         self.reversing = False    # True = animasi diputar balik ke tampilan awal
         self.linger = None
         self.back_btn = None      # tombol kembali (muncul setelah form tampil)
@@ -185,6 +202,7 @@ class Overlay(Gtk.Window):
         self.connect('destroy', self.on_destroy)
         GLib.timeout_add(TICK_MS, self.on_tick)
         GLib.timeout_add_seconds(4, self.refresh_clock)
+        GLib.timeout_add_seconds(1, self.on_watchdog)   # pengaman macet
         if not a.frame_at:                        # mode render frame: tidak perlu
             GLib.timeout_add_seconds(2, self.watch_greeter)   # cadangan
             self.start_greeter_watch()                        # deteksi langsung (xprop)
@@ -420,6 +438,51 @@ class Overlay(Gtk.Window):
         return pix, (x, y, w, h)                     # (x, y, lebar, tinggi)
 
     # ----------------------------------------------------------------- draw
+    def fail_open(self, where):
+        """Jaring pengaman terakhir: sembunyikan overlay + kembalikan fokus ke
+        greeter supaya user tetap bisa login apa pun yang terjadi."""
+        try:
+            log(self.a.log, 'fail-open %s, overlay disembunyikan:\n%s'
+                % (where, traceback.format_exc()))
+        except Exception:
+            pass
+        try:
+            self.animating = False
+            self.reversing = False
+            self.hide()
+            self.restore_focus()
+        except Exception:
+            pass
+
+    def on_watchdog(self):
+        """Paksa animasi selesai kalau tick macet (tidak pernah boleh gantung)."""
+        try:
+            if self.animating and self.anim_start > 0:
+                limit = float(self.a.duration) / 1000.0 + 5.0
+                if time.monotonic() - self.anim_start > limit:
+                    log(self.a.log, 'watchdog: animasi lewat %ss, paksa selesai'
+                        % round(limit, 1))
+                    if self.reversing:
+                        self._force_idle()
+                    else:
+                        self.progress = 1.0
+                        self.finish()
+        except Exception as e:
+            log(self.a.log, 'watchdog gagal: %s' % e)
+        return True                       # watchdog tidak boleh mati
+
+    def _force_idle(self):
+        self.progress = 0.0
+        self.animating = False
+        self.reversing = False
+        self.done = False
+        try:
+            self.area.queue_draw()
+        except Exception:
+            pass
+        self.steal_focus()
+
+    @_fail_open
     def on_draw(self, _w, cr):
         p = min(1.0, self.progress)
 
@@ -704,6 +767,7 @@ class Overlay(Gtk.Window):
         except Exception as e:
             log(self.a.log, 'tombol kembali gagal: %s' % e)
 
+    @_fail_open
     def on_back_press(self, _w, e):
         try:
             bx = e.x - (BACK_R + 8)
@@ -715,8 +779,13 @@ class Overlay(Gtk.Window):
             pass
         return False
 
+    @_fail_open
     def do_back(self):
         """Flip kembali ke tampilan awal: tutup jam+tombol, putar animasi balik."""
+        if self.reversing:
+            return True           # abaikan klik ganda selama putar balik
+        if not self.done and self.progress <= 0.0:
+            return True           # sudah di tampilan awal, tidak ada yang dibalik
         if self.linger is not None:
             self.back_armed = True
             try:
@@ -734,6 +803,7 @@ class Overlay(Gtk.Window):
         self.done = False
         self.reversing = True
         self.animating = True
+        self.anim_start = time.monotonic()
         try:
             self.show_all()          # overlay tadi di-hide, tampilkan lagi
         except Exception:
@@ -749,6 +819,7 @@ class Overlay(Gtk.Window):
             log(getattr(sys, '_anim_log', None), 'input shape dilewati: %s' % e)
 
     # ---------------------------------------------------------------- input
+    @_fail_open
     def on_tick(self):
         if self.animating:
             step = TICK_MS / max(1.0, float(self.a.duration))
@@ -789,6 +860,7 @@ class Overlay(Gtk.Window):
             pass
         return False
 
+    @_fail_open
     def on_input(self, _w, e):
         if self.done:
             return False          # animasi selesai: overlay utama sudah tutup
@@ -897,13 +969,16 @@ class Overlay(Gtk.Window):
         if self.linger is None:
             Gtk.main_quit()
 
+    @_fail_open
     def reveal(self):
         if not self.animating and self.progress <= 0.0:
             self.animating = True
+            self.anim_start = time.monotonic()
             log(self.a.log, 'reveal: kartu naik + jam terbang ke atas form (durasi %sms)'
                 % self.a.duration)
         return False
 
+    @_fail_open
     def finish(self):
         log(self.a.log, 'selesai: form tampil' + (' + jam menetap' if self.a.stay else ''))
         self.done = True
