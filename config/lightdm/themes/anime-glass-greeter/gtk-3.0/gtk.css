@@ -20,29 +20,43 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
-/* ============ HEADER ATAS — BAR kaca (host | session | power) =============== */
-/* #panel_window adalah window top-level: margin TIDAK dihormati WM sehingga
-   versi "pil mengambang" jatuh jadi bar polos menempel tepi. Versi ini bar
-   full-width ala waybar: kaca buram + garis aksen bawah + bayangan lembut.
+/* ============ HEADER ATAS — PIL kaca mengambang (host|session|power) ====== */
+/* #panel_window adalah window top-level: margin di SINI diabaikan WM sehingga
+   pil jatuh jadi bar polos. Triknya: window dibuat transparan penuh, PIL-nya
+   digambar oleh .menubar di dalamnya (margin anak container DIhormati GTK).
    Kacanya: crop band atas wallpaper yang DI-BLUR (glass-bar.jpg, blur 14px)
    ditint navy transparan — greeter tanpa compositor, jadi blur "dibakar" di
-   muka. Ukuran/posisi bar ini otomatis ikut terekam sebagai strip panel saat
+   muka. Ukuran/posisi pil ini otomatis ikut terekam sebagai strip panel saat
    animasi layar login berjalan, jadi tampilannya sama di kedua fase. */
 #panel_window {
-    margin: 0;
-    padding: 5px 24px;
+    background-color: transparent;
+    background-image: none;
     border: none;
-    border-bottom: 1px solid rgba(95, 162, 206, 0.45);   /* garis aksen */
     border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+}
+#panel_window menubar,                       /* node GTK (greeter asli) */
+#panel_window .menubar {                      /* class (kompatibilitas tema) */
+    margin: 10px 20px 0 20px;                 /* pil mengambang dari tepi */
+    padding: 7px 28px;
+    border: none;
+    border-radius: 26px;                      /* ≥ tinggi/2 → ujung membulat */
     background-color: rgba(12, 15, 28, 0.55);
     background-image: linear-gradient(rgba(12, 15, 28, 0.52), rgba(16, 20, 36, 0.40)),
                       url('/usr/share/backgrounds/anime-glass/glass-bar.jpg');
     background-size: cover, cover;
     background-position: center, center;
     background-repeat: no-repeat, no-repeat;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45),
-                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.44),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.13),
+                inset 0 1px 0 rgba(255, 255, 255, 0.20);
 }
+#panel_window menubar,
+#panel_window menubar > menuitem,
+#panel_window menubar > menuitem > label,
+#panel_window menubar > menuitem label,
+#panel_window menuitem,
 #panel_window .menubar,
 #panel_window .menubar > .menuitem,
 #panel_window .menubar > .menuitem > label,
@@ -52,8 +66,8 @@
     background-color: transparent;
     color: #eef2ff;
     font-family: Poppins, Inter, sans-serif;   /* teks header pakai Poppins */
-    font-weight: 500;
-    font-size: 13px;
+    font-weight: 600;
+    font-size: 14px;
     letter-spacing: 0.3px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.50);
 }
@@ -67,6 +81,7 @@
 #panel_window #clock_menuitem,
 #panel_window #clock_menuitem label,
 #panel_window #clock_menuitem .label,
+#panel_window menubar > #clock_menuitem,
 #panel_window .menubar > #clock_menuitem {
     font-family: Poppins, Inter, sans-serif;
     font-size: 20px;
@@ -80,6 +95,7 @@
 #panel_window #clock_menuitem:hover {
     background-color: transparent;
 }
+#panel_window menubar > menuitem:hover,
 #panel_window .menubar > .menuitem:hover {
     background-color: rgba(95, 162, 206, 0.28);
     border-radius: 14px;                      /* hover ikut bentuk pil */
