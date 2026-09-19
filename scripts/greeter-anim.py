@@ -51,6 +51,7 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango, PangoCairo  # noqa: 
 
 # --- tuning animasi (semua dalam ms / px) -----------------------------------
 TICK_MS = 16            # ~60 fps saat animasi; idle cuma repaint area kecil
+BACK_R = 24             # jari-jari tombol kembali (lingkaran kaca kiri-bawah)
 SLIDE_PX = 170          # jarak awal kartu di bawah posisi akhirnya
 FLIP_START = 0.35       # skala Y awal (kartu "terlipat" dari bawah)
 ENTER_PART = 0.72       # 72% waktu = masuk, 28% terakhir = "mendarat"
@@ -123,7 +124,10 @@ class Overlay(Gtk.Window):
         self.a = a
         self.progress = 0.0
         self.animating = False
+        self.reversing = False    # True = animasi diputar balik ke tampilan awal
         self.linger = None
+        self.back_btn = None      # tombol kembali (muncul setelah form tampil)
+        self.back_armed = False   # True = linger dihancurkan oleh tombol kembali
         self.done = False
         self.watch = None
 
@@ -628,12 +632,113 @@ class Overlay(Gtk.Window):
         win.move(x, y + self.oy)
         win.add(Gtk.Image.new_from_pixbuf(pix))
         win.connect('realize', self._click_through)
-        win.connect('destroy', Gtk.main_quit)
+        win.connect('destroy', self.on_linger_destroy)
         win.show_all()
         self.linger = win
         log(self.a.log, 'jam menetap di (%d,%d) %dx%d' % (x, y + self.oy, w, h))
         if self.a.linger_ttl > 0:               # pratinjau: tutup sendiri nanti
             GLib.timeout_add_seconds(self.a.linger_ttl, self.close_linger)
+
+    def on_linger_destroy(self, _w):
+        self.linger = None
+        if not self.back_armed:
+            Gtk.main_quit()       # jalur normal (login / ttl): keluar
+
+    # ------------------------------------------------------- tombol kembali
+    # Setelah form tampil, tombol Cancel MILIK binary greeter (handler
+    # cancel_cb di kode C) tidak bisa dikabel-ulang. Penggantinya: lingkaran
+    # kaca "‹" kiri-bawah milik overlay — diklik = flip kembali ke tampilan
+    # awal (wallpaper + jam besar), kartu greeter asli tetap di bawahnya.
+    @staticmethod
+    def paint_back(cr, size):
+        """Gambar tombol kembali di atas cairo context (murni, bisa diuji)."""
+        cx = cy = size / 2.0
+        r = BACK_R
+        cr.set_source_rgba(0, 0, 0, 0.45)                 # bayangan
+        cr.arc(cx, cy + 2, r, 0, 2 * math.pi)
+        cr.fill()
+        cr.set_source_rgba(0.05, 0.06, 0.11, 0.72)        # kaca navy
+        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        cr.fill()
+        cr.set_source_rgba(0.37, 0.64, 0.81, 0.90)        # ring aksen #5fa2ce
+        cr.set_line_width(2.5)
+        cr.arc(cx, cy, r - 2, 0, 2 * math.pi)
+        cr.stroke()
+        lay = PangoCairo.create_layout(cr)                # chevron "‹"
+        lay.set_text('‹', -1)
+        lay.set_font_description(Pango.FontDescription('Poppins Bold 34px'))
+        _tw, th = lay.get_pixel_size()
+        cr.move_to(cx - 10, cy - th / 2.0 - 1)
+        cr.set_source_rgba(1, 1, 1, 0.98)
+        PangoCairo.show_layout(cr, lay)
+
+    def on_draw_back(self, area, cr):
+        alloc = area.get_allocation()
+        self.paint_back(cr, alloc.width)
+        return False
+
+    def show_back(self):
+        """Tampilkan tombol kembali setelah form login tampil."""
+        try:
+            size = BACK_R * 2 + 16
+            x, y = 26, self.h - 26 - size
+            win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+            win.set_decorated(False)
+            win.set_skip_taskbar_hint(True)
+            win.set_keep_above(True)
+            win.set_type_hint(Gdk.WindowTypeHint.DOCK)
+            win.set_can_focus(False)
+            win.set_accept_focus(False)
+            win.set_app_paintable(True)
+            area = Gtk.DrawingArea()
+            area.set_size_request(size, size)
+            area.set_can_focus(False)
+            area.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+            area.connect('draw', self.on_draw_back)
+            area.connect('button-press-event', self.on_back_press)
+            win.add(area)
+            win.move(x, y + self.oy)
+            win.show_all()
+            self.back_btn = (win, x, y, size)
+            log(self.a.log, 'tombol kembali di (%d,%d)' % (x, y + self.oy))
+        except Exception as e:
+            log(self.a.log, 'tombol kembali gagal: %s' % e)
+
+    def on_back_press(self, _w, e):
+        try:
+            bx = e.x - (BACK_R + 8)
+            by = e.y - (BACK_R + 8)
+            if bx * bx + by * by <= (BACK_R + 8) ** 2:
+                self.do_back()
+                return True
+        except Exception:
+            pass
+        return False
+
+    def do_back(self):
+        """Flip kembali ke tampilan awal: tutup jam+tombol, putar animasi balik."""
+        if self.linger is not None:
+            self.back_armed = True
+            try:
+                self.linger.destroy()
+            except Exception:
+                pass
+            self.linger = None
+            self.back_armed = False
+        if self.back_btn is not None:
+            try:
+                self.back_btn[0].destroy()
+            except Exception:
+                pass
+            self.back_btn = None
+        self.done = False
+        self.reversing = True
+        self.animating = True
+        try:
+            self.show_all()          # overlay tadi di-hide, tampilkan lagi
+        except Exception:
+            pass
+        log(self.a.log, 'membatalkan: flip kembali ke tampilan awal')
 
     @staticmethod
     def _click_through(win):
@@ -646,13 +751,28 @@ class Overlay(Gtk.Window):
     # ---------------------------------------------------------------- input
     def on_tick(self):
         if self.animating:
-            self.progress += TICK_MS / max(1.0, float(self.a.duration))
-            if self.progress >= 1.0:
-                self.progress = 1.0
+            step = TICK_MS / max(1.0, float(self.a.duration))
+            if self.reversing:
+                # putar balik: kartu turun + jam kembali ke tengah (flip back)
+                self.progress -= step
+                if self.progress <= 0.0:
+                    self.progress = 0.0
+                    self.animating = False
+                    self.reversing = False
+                    self.done = False
+                    self.area.queue_draw()
+                    self.steal_focus()
+                    log(self.a.log, 'kembali ke tampilan awal (dibatalkan)')
+                    return True
                 self.area.queue_draw()
-                self.finish()
-                return False
-            self.area.queue_draw()                       # animasi: repaint penuh
+            else:
+                self.progress += step
+                if self.progress >= 1.0:
+                    self.progress = 1.0
+                    self.area.queue_draw()
+                    self.finish()
+                    return False
+                self.area.queue_draw()                   # animasi: repaint penuh
         else:
             self.area.queue_draw_area(*self.hint_area)   # idle: cuma area kecil
         return True
@@ -739,13 +859,25 @@ class Overlay(Gtk.Window):
 
     def quit_now(self, why):
         log(self.a.log, '%s → tutup jam & keluar' % why)
+        if self.back_btn is not None:
+            try:
+                self.back_btn[0].destroy()
+            except Exception:
+                pass
+            self.back_btn = None
         if self.linger is not None:
-            self.linger.destroy()            # ini juga memicu Gtk.main_quit
+            self.linger.destroy()            # memicu Gtk.main_quit via handler
         else:
             Gtk.main_quit()
 
     def close_linger(self):
         """Tutup jam menetap (dipakai pratinjau: --linger-ttl)."""
+        if self.back_btn is not None:
+            try:
+                self.back_btn[0].destroy()
+            except Exception:
+                pass
+            self.back_btn = None
         if self.linger is not None:
             self.linger.destroy()
         else:
@@ -773,11 +905,13 @@ class Overlay(Gtk.Window):
         return False
 
     def finish(self):
-        log(self.a.log, 'selesai: overlay ditutup' + (' + jam menetap' if self.a.stay else ''))
+        log(self.a.log, 'selesai: form tampil' + (' + jam menetap' if self.a.stay else ''))
         self.done = True
         if self.a.stay and self.pix_final is not None:
             self.show_linger()
-        self.close()
+        self.show_back()
+        self.restore_focus()     # langsung bisa mengetik password
+        self.hide()              # disembunyikan (bukan close) supaya bisa flip balik
 
     # ---------------------------------------------------------------- fokus
     def steal_focus(self):

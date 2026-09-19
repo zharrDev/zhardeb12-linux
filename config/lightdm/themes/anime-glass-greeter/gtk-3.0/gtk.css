@@ -107,7 +107,10 @@
     border: none;
     color: #eef2ff;
     border-radius: 14px;
-    padding: 4px 12px;
+    padding: 7px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: Poppins, Inter, sans-serif;
     transition: all 170ms ease;
 }
 #panel_window button:hover,
@@ -117,6 +120,38 @@
 }
 #shutdown_button.button { color: #f38ba8; }
 #restart_button.button  { color: #fab387; }
+
+/* --- POPUP MENU header (session/power/bahasa/dll): kartu kaca + rounded ---
+   Menu-menu ini dibuat oleh binary greeter (child GtkMenu: #session_menu,
+   #power_menu, ...). Dibuka dengan KLIK (perilaku bawaan GtkMenuBar di kode
+   C — hover-untuk-membuka tidak bisa diubah lewat CSS), lalu hover berpindah
+   antar menu yang sedang terbuka. node + class ditulis dua-duanya. */
+menu,
+.menu,
+#session_menu, #power_menu, #language_menu, #layout_menu, #a11y_menu {
+    background-color: rgba(12, 15, 28, 0.94);
+    background-image: linear-gradient(rgba(12, 15, 28, 0.90), rgba(20, 24, 44, 0.94));
+    border: 1px solid rgba(95, 162, 206, 0.45);
+    border-radius: 14px;
+    padding: 6px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+menu menuitem,
+.menu .menuitem,
+menu #session_menuitem, menu #power_menuitem {
+    color: #eef2ff;
+    font-family: Poppins, Inter, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 9px;
+}
+menu menuitem:hover,
+.menu .menuitem:hover {
+    background-color: rgba(95, 162, 206, 0.85);
+    background-image: none;
+    color: #ffffff;
+}
 
 /* ============ KARTU LOGIN — glass buram, BESAR, di tengah layar ============ */
 #login_window,
@@ -213,7 +248,7 @@
 #user_image_border {
     border-radius: 50%;
     background-color: rgba(12, 14, 26, 0.55);
-    padding: 5px;
+    padding: 0;                 /* avatar full-bleed: gambar mentok ke ring */
     box-shadow: 0 0 0 2px rgba(95, 162, 206, 0.85),
                 0 0 0 5px rgba(122, 111, 212, 0.30),
                 0 0 26px rgba(95, 162, 206, 0.35),

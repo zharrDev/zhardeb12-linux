@@ -597,6 +597,10 @@ stay=1           # 1 = jam tetap menampil di atas form setelah animasi
 Mematikan animasi: `sudo bash scripts/apply-lightdm-greeter.sh --no-anim`.
 Log-nya ada di `/var/log/anime-glass-anim.log`.
 
+Membatalkan: selama kartu naik, **Esc / klik kanan** kembali ke tampilan awal;
+setelah form tampil, klik lingkaran kaca **‹** kiri-bawah untuk flip kembali.
+(Tombol Cancel di kartu milik binary greeter — perilakunya bawaan LightDM.)
+
 **Menyetel animasi tanpa login berulang** — render beberapa frame ke PNG lalu
 periksa (0 = wallpaper + jam besar, 1 = kartu mendarat + jam di atas form):
 ```bash
