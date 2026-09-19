@@ -141,14 +141,25 @@ xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 | `Super + Q` | **Close** jendela aktif |
 | `Super + W` | **Minimize** |
 | `Super + A` | **Maximize** toggle |
-| `Super + ←` | Geser jendela ke kiri (80px) |
-| `Super + →` | Geser ke kanan |
-| `Super + ↑` | Geser ke atas |
-| `Super + ↓` | Geser ke bawah |
+| `Super + ←` | Geser jendela ke kiri (80px) — **mentok kiri → nembus ke workspace kiri** |
+| `Super + →` | Geser ke kanan — **mentok kanan → nembus ke workspace kanan** |
+| `Super + ↑` | Geser ke atas — **mentok atas → nembus ke workspace ATAS** (ditempel di bawah) |
+| `Super + ↓` | Geser ke bawah — **mentok bawah → nembus ke workspace BAWAH** (ditempel di atas) |
 
 Diimplementasikan via `scripts/window-shortcuts.sh` (wmctrl) — di-bind
 oleh installer ke `xfce4-keyboard-shortcuts`. Jarak geser bisa diubah:
 `STEP=40 ~/.local/bin/window-shortcuts.sh left`.
+
+Grid workspace dibaca dari `_NET_DESKTOP_LAYOUT` (di mesin ini **2×2**), jadi
+"bawah" = workspace **+2** (baris bawah pada kolom yang sama), bukan +1. Batas
+gerak memakai `_NET_WORKAREA`, jadi panel atas (44px) tidak pernah ketimpa.
+
+Uji tanpa menggeser apa pun (dry-run) dan bersihkan binding ganda xfwm4:
+```bash
+DRY=1 WIN=$(xprop -root _NET_ACTIVE_WINDOW | awk '{print $5}') \
+    bash scripts/window-shortcuts.sh down      # cetak rencana saja
+bash scripts/apply-workspace-shortcuts.sh      # pastikan Super+↑/↓ tidak dobel
+```
 
 | Komponen | By-LeyzS (Hyprland) | Zhardeb (Xfce) |
 | --- | --- | --- |
@@ -406,7 +417,12 @@ Layar login dibuat senada dengan desktop: wallpaper anime + **kartu login kaca
 buram (frosted glass) di TENGAH layar**, ukuran besar, sudut membulat 24px,
 border gradasi biru→ungu→lavender, **avatar anime bulat** untuk user, entry
 password & tombol pill dengan glow aksen, plus panel jam+tanggal di atas
-(format Indonesia).
+(format Indonesia) — **jamnya sengaja besar (23px, tebal)** supaya langsung
+terbaca saat login.
+
+Wallpaper login aktif: `config/wallpapers/login/anime-login-bg.jpg`
+(**anime blue-girl**, gelap-navy sehingga kartu kaca & jam kontras). Ganti
+kapan saja dengan menaruh gambar landscape lain di folder itu lalu deploy ulang.
 
 ```bash
 sudo bash scripts/apply-lightdm-greeter.sh                # pasang (login otomatis aktif)
@@ -464,11 +480,28 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin
 
 ### ✨ Animasi: wallpaper dulu → kartu login muncul saat tombol ditekan
 
-Saat layar login muncul, yang tampil **cuma wallpaper + petunjuk**:
-`Tekan tombol apa saja untuk masuk`. Begitu ada tombol ditekan (atau diklik),
-**kartu login masuk dari bawah dengan halus** (slide + fade + sedikit efek
-flip), lalu lapisan animasinya menutup diri sehingga kartu login asli — yang
-posisinya persis sama — langsung bisa dipakai mengetik password.
+Saat layar login muncul, yang tampil **cuma wallpaper + SPLASH kaca besar**:
+`Tekan tombol apa saja untuk masuk` + subjudul kecil, tiga titik yang menyala
+bergantian, dan sapuan kilau biru di permukaan splash.
+
+Begitu ada tombol ditekan (atau diklik), kartu login masuk lewat animasi
+berlapis (±0,7 detik):
+
+| Lapisan | Efek |
+| --- | --- |
+| Kartu | **FLIP** — skala vertikal 0.35→1 dengan sedikit overshoot (terbuka dari bawah) + slide `ease-out` 170px |
+| Perspektif | kartu melebar sesaat di tengah lintasan (terasa mendekat ke kamera) |
+| Kilau (sheen) | gradasi cahaya menyapu diagonal di permukaan kartu |
+| Glow | halo aksen biru→ungu yang tumbuh lalu habis tepat saat kartu mendarat |
+| Wallpaper | zoom Ken-Burns + menggelap di tengah animasi, lalu **kembali persis normal** |
+| Splash | turun + mengecil + memudar cepat (crossfade) supaya tidak tumpang-tindih |
+
+Di akhir animasi wallpaper & kartu kembali ke keadaan identik dengan yang
+digambar greeter, jadi serah-terima ke kartu login asli **tanpa lompatan**.
+Semua efek digambar dengan Cairo (tanpa blur realtime) dan splash di-render
+sekali jadi pixbuf — idle animasi hanya me-repaint **area splash** saja,
+sementara repaint penuh hanya ±0,7 detik saat kartu masuk (RAM greeter tetap
+±20–30 MB).
 
 Aman by design: **autentikasi tetap milik `lightdm-gtk-greeter` bawaan**, lapisan
 animasi hanya melukis di atasnya. Kalau overlay gagal/tidak jalan, layar login
@@ -476,19 +509,31 @@ langsung tampil normal; kalau tidak ada tombol ditekan, kartu muncul sendiri
 setelah 120 detik (jadi tidak mungkin "terkunci").
 
 ```bash
-bash scripts/preview-login.sh --anim 20   # coba transisinya dulu (tekan tombol!), tutup: ESC
+bash scripts/preview-login.sh --anim 20     # coba transisinya (tekan tombol!), ESC = tutup
+bash scripts/preview-login.sh --anim 30 5   # kartu muncul sendiri setelah 5 detik
 ```
 
 Setelan (ubah di sini, tidak perlu edit script) — `/etc/lightdm/anime-glass-anim.conf`:
 ```ini
 enabled=1        # 0 = matikan animasi (kartu login langsung tampil)
-duration=520     # durasi kartu masuk dari bawah (milidetik)
+duration=700     # durasi kartu masuk+flip (ms) — 500 = cepat, 900 = dramatis
 timeout=120      # detik; kartu muncul sendiri bila tak ada tombol ditekan
+auto=0           # >0 = kartu muncul sendiri setelah N detik (demo/pratinjau)
+hint_size=34     # ukuran font splash (px) — 26 kecil, 42 ekstra besar
 # hint=Tekan tombol apa saja untuk masuk
+# hint_sub=klik di mana saja · kartu login akan muncul
 ```
 
 Mematikan animasi: `sudo bash scripts/apply-lightdm-greeter.sh --no-anim`.
 Log-nya ada di `/var/log/anime-glass-anim.log`.
+
+**Menyetel animasi tanpa login berulang** — render beberapa frame ke PNG lalu
+periksa (0 = splash, 1 = kartu mendarat):
+```bash
+python3 scripts/greeter-anim.py --wallpaper config/wallpapers/login/anime-login-bg.jpg \
+  --card /tmp/card.png --card-x 645 --card-y 375 \
+  --frame-at 0,0.1,0.2,0.35,0.5,0.7,1 --frame-out /tmp/frames
+```
 
 > Kalau layar login bermasalah setelah deploy: `Ctrl+Alt+F2` → login TTY →
 > `sudo bash ~/Documents/zhardeb/scripts/apply-lightdm-greeter.sh --no-anim`
@@ -621,6 +666,14 @@ systemctl status lightdm
 
 ## 📌 Catatan release
 
+- **Login screen v4.1** — jam panel diperbesar (23px tebal, panel lebih lega),
+  splash layar login diperbesar (font 34px + tiga titik indikator), animasi
+  kartu masuk diperdalam (flip + sheen + glow + zoom Ken-Burns yang kembali
+  normal di akhir), dan wallpaper login diganti ke **anime blue-girl**.
+  Setelan baru: `duration`, `auto`, `hint_size`, `hint_sub`.
+- **Shortcut `Super+↑/↓`** kini "nembus" ke workspace atas/bawah memakai grid
+  `_NET_DESKTOP_LAYOUT` (2×2 di mesin ini) dan `_NET_WORKAREA`; binding xfwm4
+  yang dobel otomatis dibersihkan oleh `scripts/apply-workspace-shortcuts.sh`.
 - Tema GTK Catppuccin: URL download menggunakan asset
   `catppuccin-mocha-blue-standard+default.zip` (v1.0.3+), bukan nama lama.
 - Icon pack Tela-circle: repo ini tidak lagi menyediakan `Tela-circle-dark.zip`

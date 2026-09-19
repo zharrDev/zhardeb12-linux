@@ -166,9 +166,12 @@ if [ "$ANIM" -eq 1 ]; then
 # Animasi layar login Anime Glass (dibaca oleh greeter-anim-launch.py)
 # Ubah di sini lalu reboot — tidak perlu mengedit script.
 enabled=1        # 0 = matikan animasi (kartu login langsung tampil)
-duration=520     # durasi kartu masuk dari bawah (milidetik)
+duration=700     # durasi kartu masuk+flip (milidetik) — 500 = cepat, 900 = dramatis
 timeout=120      # detik; kartu muncul sendiri bila tak ada tombol ditekan
+auto=0           # detik; >0 = kartu muncul sendiri setelah N detik (demo)
+hint_size=34     # ukuran font SPLASH di layar login (px)
 # hint=Tekan tombol apa saja untuk masuk
+# hint_sub=klik di mana saja · kartu login akan muncul
 EOF
         chmod 644 "$ANIM_CONF"
     fi

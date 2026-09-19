@@ -256,12 +256,15 @@ def main():
                              '--wallpaper', WALLPAPER,
                              '--card', card_png,
                              '--card-x', str(card_x), '--card-y', str(card_y),
-                             '--top-gap', str(top_gap),
-                             '--focus-window', wid,
-                             '--timeout', cfg.get('timeout', '120'),
-                             '--duration', cfg.get('duration', '520'),
-                             '--hint', cfg.get('hint', 'Tekan tombol apa saja untuk masuk'),
-                             '--log', LOG])
+                             '--top-gap', str(top_gap),                                 '--focus-window', wid,
+                                 '--timeout', cfg.get('timeout', '120'),
+                                 '--duration', cfg.get('duration', '700'),
+                                 '--hint', cfg.get('hint', 'Tekan tombol apa saja untuk masuk'),
+                                 '--hint-sub', cfg.get('hint_sub',
+                                                       'klik di mana saja · kartu login akan muncul'),
+                                 '--hint-size', cfg.get('hint_size', '34'),
+                                 '--auto', cfg.get('auto', '0'),
+                                 '--log', LOG])
     try:
         with open(LOCK, 'w') as f:
             f.write(str(proc.pid))

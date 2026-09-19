@@ -30,8 +30,8 @@
     background-position: center, center;
     background-repeat: no-repeat, no-repeat;
     border: none;
-    border-radius: 16px;
-    padding: 4px 14px;
+    border-radius: 18px;
+    padding: 6px 18px;
     box-shadow: 0 6px 22px rgba(0, 0, 0, 0.42),
                 inset 0 0 0 1px rgba(255, 255, 255, 0.10),
                 inset 0 1px 0 rgba(255, 255, 255, 0.14);
@@ -41,6 +41,25 @@
     background-color: transparent;
     color: #f2f4ff;
     font-weight: 600;
+    font-size: 13px;
+}
+
+/* --- JAM & TANGGAL: dibuat BESAR & tegas (pusat perhatian panel) --- */
+#clock_menuitem,
+#panel_window #clock_menuitem,
+#panel_window #clock_menuitem label,
+#panel_window #clock_menuitem .label,
+#panel_window .menubar > #clock_menuitem {
+    font-size: 23px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+    padding: 2px 14px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.62),
+                 0 0 18px rgba(95, 162, 206, 0.35);
+}
+#panel_window #clock_menuitem:hover {
+    background-color: transparent;
 }
 #panel_window .menubar > .menuitem:hover {
     background-color: rgba(95, 162, 206, 0.30);

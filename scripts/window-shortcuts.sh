@@ -11,15 +11,24 @@
 #   down    : Super+Down    — geser 80px ke bawah
 #   open    : Super+Return   — buka terminal (kitty 1280x720+50+50)
 #
-# Mentok tepi layar (kiri/kanan) → jendela dipindah ke workspace sebelah
-# dan viewport ikut berpindah (ala movefocus/movetoworkspace Hyprland).
+# "NEMBUS" TEPI → WORKSPACE (ala movetoworkspace di Hyprland):
+#   • mentok kiri/kanan  → jendela pindah ke workspace kiri/kanan + viewport ikut
+#   • mentok atas        → jendela pindah ke workspace ATAS  (ditempel di bawah)
+#   • mentok bawah       → jendela pindah ke workspace BAWAH (ditempel di atas)
+#   Grid workspace dibaca dari _NET_DESKTOP_LAYOUT (di mesin ini 2 kolom x 2 baris),
+#   jadi "bawah" = workspace + jumlah kolom, bukan sekadar +1.
+#   Kalau workspace tidak bisa dipindah (mis. cuma 1 workspace), jendela cuma
+#   ditempel rapi ke tepi area kerja — tidak ada yang keluar layar.
 #
 # Semua geometry pakai CLIENT geometry (wmctrl -lG) — satu sumber, tanpa
 # konversi frame/client (itulah sumber drift vertikal sebelumnya).
 #
+# Uji tanpa menggeser apa pun:  DRY=1 WIN=0x<id> bash window-shortcuts.sh down
+#
 set -euo pipefail
 
 STEP="${STEP:-80}"
+DRY="${DRY:-0}"                 # 1 = hitung & cetak rencana, jangan pindahkan apa pun
 
 cmd="${1:-}"
 [ -n "$cmd" ] || { echo "pakai: $0 close|min|max|left|right|up|down|open"; exit 1; }
@@ -65,42 +74,76 @@ case "$cmd" in
         CAL_X=$((EXL + EXR))
         CAL_Y=$((EXT + EXT))
 
-        case "$cmd" in
-            left)  x=$((x - STEP)) ;;
-            right) x=$((x + STEP)) ;;
-            up)    y=$((y - STEP)); [ "$y" -lt 0 ] && y=0 ;;
-            down)  y=$((y + STEP)) ;;
-        esac
+        # ----- area kerja (sudah memperhitungkan panel) -----
+        WA=$(xprop -root _NET_WORKAREA 2>/dev/null | awk -F'=' '{gsub(/[^0-9,]/,"",$2); print $2}' || true)
+        IFS=, read -r WAX WAY WAW WAH _ <<< "${WA:-0,0,$SCREEN_W,$SCREEN_H}"
+        : "${WAX:=0}" "${WAY:=0}" "${WAW:=$SCREEN_W}" "${WAH:=$SCREEN_H}"
+        BOTTOM=$((WAY + WAH))
+        RIGHT=$((WAX + WAW))
 
-        # workspace aktif & jumlah workspace (baris bertanda '*')
+        # ----- workspace aktif, jumlahnya, dan lebar grid (kolom) -----
         ws_line=$(wmctrl -d 2>/dev/null | awk '$2=="*"{print NR-1; exit}' || true)
         : "${ws_line:=0}"
         NWS=$(wmctrl -d 2>/dev/null | wc -l || true)
         : "${NWS:=1}"
+        LAY=$(xprop -root _NET_DESKTOP_LAYOUT 2>/dev/null | awk -F'=' '{gsub(/[^0-9,]/,"",$2); print $2}' || true)
+        IFS=, read -r _ L_COLS L_ROWS _ <<< "${LAY:-0,0,0,0}"
+        COLS=$(( ${L_COLS:-0} )); ROWS=$(( ${L_ROWS:-0} ))
+        if [ "$COLS" -le 0 ]; then
+            if [ "$ROWS" -gt 1 ]; then COLS=$(( (NWS + ROWS - 1) / ROWS )); else COLS=1; fi
+        fi
+        [ "$COLS" -ge 1 ] || COLS=1
 
-        # mentok tepi → pindah workspace + jendela ikut
-        if [ "$cmd" = right ] && [ $((x + w)) -gt "$SCREEN_W" ]; then
-            NEXT=$(( (ws_line + 1) % NWS ))
-            if [ "$NEXT" != "$ws_line" ]; then
-                wmctrl -i -r "$AWID" -t "$NEXT" 2>/dev/null || true
-                wmctrl -s "$NEXT" 2>/dev/null || true
-                x=0
+        case "$cmd" in
+            left)  x=$((x - STEP)) ;;
+            right) x=$((x + STEP)) ;;
+            up)    y=$((y - STEP)) ;;
+            down)  y=$((y + STEP)) ;;
+        esac
+
+        # ----- "nembus" tepi: pindah workspace + jendela ikut -----
+        TARGET=""; NOTE=""
+        if [ "$cmd" = right ] && [ $((x + w)) -gt "$RIGHT" ]; then
+            TARGET=$(( (ws_line + 1) % NWS ));  x=$WAX        # masuk dari kiri
+        elif [ "$cmd" = left ] && [ "$x" -lt "$WAX" ]; then
+            TARGET=$(( (ws_line - 1 + NWS) % NWS )); x=$((RIGHT - w))   # masuk dari kanan
+        elif [ "$cmd" = down ] && [ $((y + h)) -gt "$BOTTOM" ]; then
+            TARGET=$(( (ws_line + COLS) % NWS )); y=$WAY      # masuk dari atas
+        elif [ "$cmd" = up ] && [ "$y" -lt "$WAY" ]; then
+            TARGET=$(( (ws_line - COLS % NWS + NWS) % NWS )); y=$((BOTTOM - h))  # dari bawah
+        fi
+
+        if [ -n "$TARGET" ]; then
+            if [ "$TARGET" = "$ws_line" ] || [ "$NWS" -le 1 ]; then
+                # tidak ada workspace tujuan → tempel rapi ke tepi, jangan keluar layar
+                case "$cmd" in
+                    right) x=$((RIGHT - w)) ;;
+                    left)  x=$WAX ;;
+                    down)  y=$((BOTTOM - h)) ;;
+                    up)    y=$WAY ;;
+                esac
+                NOTE=" (mentok: tanpa workspace tujuan)"
+                TARGET=""
             else
-                x=$((SCREEN_W - w))
+                if [ "$DRY" = "1" ]; then
+                    NOTE=" -> pindah ke workspace $TARGET (dari $ws_line, grid ${COLS} kolom)"
+                else
+                    wmctrl -i -r "$AWID" -t "$TARGET" 2>/dev/null || true
+                    wmctrl -s "$TARGET" 2>/dev/null || true
+                    NOTE=" -> pindah ke workspace $TARGET"
+                fi
             fi
-        elif [ "$cmd" = left ] && [ "$x" -lt 0 ]; then
-            PREV=$(( (ws_line - 1 + NWS) % NWS ))
-            if [ "$PREV" != "$ws_line" ]; then
-                wmctrl -i -r "$AWID" -t "$PREV" 2>/dev/null || true
-                wmctrl -s "$PREV" 2>/dev/null || true
-                x=$((SCREEN_W - w))
-            else
-                x=0
-            fi
+        fi
+
+        if [ "$DRY" = "1" ]; then
+            printf 'DRY %-5s win=%dx%d di (%d,%d) -> (%d,%d)%s\n' \
+                "$cmd" "$w" "$h" "$x" "$y" "$((x - CAL_X))" "$((y - CAL_Y))" "$NOTE"
+            exit 0
         fi
 
         # set posisi via EWMH — dengan kompensasi kalibrasi xfwm4
         wmctrl -i -r "$AWID" -e "0,$((x - CAL_X)),$((y - CAL_Y)),$w,$h" 2>/dev/null || true
+        [ -n "$NOTE" ] && echo "[window] $cmd$NOTE" || true
         ;;
     *) echo "aksi tidak dikenal: $cmd"; exit 1 ;;
 esac

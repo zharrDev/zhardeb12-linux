@@ -1,31 +1,56 @@
 #!/usr/bin/env python3
 """greeter-anim.py — overlay "wallpaper dulu, form login muncul belakangan".
 
-Menampilkan wallpaper saja + petunjuk. Begitu ada tombol diklik/ditekan, kartu
-login masuk dari bawah dengan halus (slide + fade + sedikit efek flip), lalu
-overlay menutup diri sehingga kartu login yang ASLI (digambar greeter) terlihat
-di posisi yang sama — jadi serah-terimanya mulus tanpa lompatan.
+Alur (sama seperti sebelumnya, tapi lebih dalam & tetap ringan):
+
+  1. Awal  : wallpaper saja + SPLASH kaca besar ("Tekan tombol untuk masuk")
+             — splash di-render SEKALI jadi pixbuf, jadi tiap frame cuma satu
+             blit kecil (hemat CPU; area repaint dibatasi seukuran splash).
+  2. Tombol: kartu login masuk dari bawah dengan animasi berlapis:
+             slide (ease-out-expo) + FLIP 3D-tiruan (skala Y 0.45→1 + skala X
+             melebar di tengah = efek kartu mendekat), bayangan yang menyusul,
+             glow aksen, kilau (sheen) menyapu permukaan kartu, dan wallpaper
+             yang pelan-pelan zoom + meredup (kedalaman/parallax).
+  3. Selesai: overlay menutup diri tepat di posisi kartu asli (greeter), fokus
+             dikembalikan ke window greeter → langsung bisa mengetik password.
+
+Semua kegagalan bersifat aman: gambar gagal dibaca / GTK error → script keluar
+tanpa menampilkan apa pun, layar login tetap normal.
 
   python3 greeter-anim.py --wallpaper bg.jpg --card card.png \
       --card-x 645 --card-y 374 [--top-gap 62] [--timeout 120] \
-      [--duration 480] [--focus-window 0x400003] [--log /tmp/anim.log]
+      [--duration 700] [--hint "Tekan tombol apa saja untuk masuk"] \
+      [--hint-size 30] [--auto 0] [--focus-window 0x400003] [--log /tmp/anim.log]
 
-Seluruh kegagalan bersifat aman: kalau gambar tidak bisa dibaca, script keluar
-tanpa menampilkan apa pun (layar login tetap normal).
+  --auto N : kartu muncul sendiri setelah N detik (0 = nonaktif). Berguna untuk
+             pratinjau/demo tanpa perlu menekan tombol.
 """
 import argparse
+import math
+import os
 import sys
 import time
 
+import cairo
 import gi
 
 gi.require_version('Gtk', '3.0')
+gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango, PangoCairo  # noqa: E402
 
-TICK_MS = 16
-SLIDE_PX = 150          # jarak awal kartu di bawah posisi akhirnya
+# --- tuning animasi (semua dalam ms / px) -----------------------------------
+TICK_MS = 16            # ~60 fps saat animasi; idle cuma repaint area kecil
+SLIDE_PX = 170          # jarak awal kartu di bawah posisi akhirnya
+FLIP_START = 0.35       # skala Y awal (kartu "terlipat" dari bawah)
+ENTER_PART = 0.72       # 72% waktu = masuk, 28% terakhir = "mendarat"
+FLIP_PART = 0.50        # flip selesai di 50% waktu (lebih ringkas dari slide)
+ZOOM_PEAK = 1.055       # zoom wallpaper di tengah animasi (naik lalu kembali)
+DIM_PEAK = 0.24         # gelap maksimum wallpaper di tengah animasi
+ACCENT = (95 / 255.0, 162 / 255.0, 206 / 255.0)      # #5fa2ce
+ACCENT2 = (122 / 255.0, 111 / 255.0, 212 / 255.0)    # #7a6fd4
 HINT_TEXT = 'Tekan tombol apa saja untuk masuk'
+HINT_SUB = 'klik di mana saja · kartu login akan muncul'
 
 
 def log(path, msg):
@@ -38,8 +63,28 @@ def log(path, msg):
         pass
 
 
+# --------------------------------------------------------------------- easing
 def ease_out_cubic(t):
     return 1.0 - (1.0 - t) ** 3
+
+
+def ease_out_back(t, s=1.0):
+    t -= 1.0
+    return t * t * ((s + 1.0) * t + s) + 1.0
+
+
+def ease_in_out_sine(t):
+    return 0.5 - 0.5 * math.cos(math.pi * max(0.0, min(1.0, t)))
+
+
+def rounded_path(cr, x, y, w, h, r):
+    r = min(r, w / 2.0, h / 2.0)
+    cr.new_sub_path()
+    cr.arc(x + w - r, y + r, r, -math.pi / 2, 0)
+    cr.arc(x + w - r, y + h - r, r, 0, math.pi / 2)
+    cr.arc(x + r, y + h - r, r, math.pi / 2, math.pi)
+    cr.arc(x + r, y + r, r, math.pi, 3 * math.pi / 2)
+    cr.close_path()
 
 
 class Overlay(Gtk.Window):
@@ -48,7 +93,6 @@ class Overlay(Gtk.Window):
         self.a = a
         self.progress = 0.0
         self.animating = False
-        self.pulse = 0.0
         self.focus_tries = 0
 
         self.wall = self.load_pixbuf(a.wallpaper)
@@ -56,11 +100,15 @@ class Overlay(Gtk.Window):
         if self.wall is None or self.card is None:
             raise SystemExit(0)                     # aman: biarkan layar login normal
 
-        disp = Gdk.Display.get_default()
-        geo = disp.get_monitor(0).get_geometry()
+        geo = Gdk.Display.get_default().get_monitor(0).get_geometry()
         self.sw, self.sh = geo.width, geo.height
         self.top_gap = max(0, a.top_gap)
         self.h = self.sh - self.top_gap
+
+        # wallpaper di-scale SEKALI ke ukuran overlay (bukan tiap frame)
+        self.wall_scaled = self.wall.scale_simple(
+            self.sw, self.h, GdkPixbuf.InterpType.BILINEAR) or self.wall
+
         self.card_x, self.card_y = a.card_x, a.card_y - self.top_gap
         self.card_w, self.card_h = self.card.get_width(), self.card.get_height()
 
@@ -78,12 +126,19 @@ class Overlay(Gtk.Window):
         self.area.connect('draw', self.on_draw)
         self.add(self.area)
 
+        # SPLASH: dirender sekali ke pixbuf (teks besar + plat kaca)
+        self.hint_pix, self.hint_rect = self.build_hint()   # (x, y, w, h)
+        hx, hy, hw, hh = self.hint_rect
+        self.hint_area = (hx, hy, hx + hw, hy + hh)         # untuk queue_draw_area
+
         self.connect('key-press-event', self.on_input)
         self.connect('button-press-event', self.on_input)
         self.connect('destroy', Gtk.main_quit)
         GLib.timeout_add(TICK_MS, self.on_tick)
         if a.timeout > 0:                            # jaring aman: jangan sampai terkunci
             GLib.timeout_add_seconds(a.timeout, self.reveal)
+        if a.auto > 0:                               # demo/pratinjau tanpa menekan tombol
+            GLib.timeout_add_seconds(a.auto, self.reveal)
 
     # ---------------------------------------------------------------- pixbuf
     @staticmethod
@@ -94,77 +149,250 @@ class Overlay(Gtk.Window):
             log(getattr(sys, '_anim_log', None), 'gagal memuat %s: %s' % (path, e))
             return None
 
+    # ------------------------------------------------------- splash (sekali)
+    PAD_X = 56          # padding kiri/kanan plat kaca
+    PAD_TOP = 20
+    PAD_BOTTOM = 40     # ruang untuk tiga titik indikator
+
+    def build_hint(self):
+        """Ukur teks lalu gambar plat kaca + SPLASH besar KE PIXBUF (sekali saja).
+
+        Ukuran plat dihitung dari lebar teks yang sebenarnya (Pango), supaya teks
+        tidak pernah mepet/terpotong walau --hint-size diubah-ubah.
+        """
+        fs = self.a.hint_size
+        sub_fs = max(11, int(fs * 0.50))
+
+        scratch = cairo.ImageSurface(cairo.FORMAT_ARGB32, 8, 8)
+        scr = cairo.Context(scratch)
+        title = PangoCairo.create_layout(scr)
+        title.set_text(self.a.hint, -1)
+        title.set_font_description(Pango.FontDescription('Inter Bold %dpx' % fs))
+        tw, th = title.get_pixel_size()
+        sub = PangoCairo.create_layout(scr)
+        sub.set_text(self.a.hint_sub, -1)
+        sub.set_font_description(Pango.FontDescription('Inter %dpx' % sub_fs))
+        subw, subh = sub.get_pixel_size()
+
+        w = int(min(self.sw - 90, max(560, max(tw, subw) + self.PAD_X * 2)))
+        h = self.PAD_TOP + th + 16 + subh + self.PAD_BOTTOM
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(surf)
+
+        # plat kaca: tint navy + tepi terang halus + garis kilau di tepi atas
+        rounded_path(cr, 1, 1, w - 2, h - 2, 28)
+        grad = cairo.LinearGradient(0, 0, 0, h)
+        grad.add_color_stop_rgba(0, 0.10, 0.12, 0.22, 0.60)
+        grad.add_color_stop_rgba(1, 0.05, 0.06, 0.12, 0.74)
+        cr.set_source(grad)
+        cr.fill_preserve()
+        cr.set_line_width(1.6)
+        cr.set_source_rgba(1, 1, 1, 0.18)
+        cr.stroke()
+        cr.move_to(30, 2.2)
+        cr.line_to(w - 30, 2.2)
+        cr.set_line_width(1.1)
+        cr.set_source_rgba(1, 1, 1, 0.22)
+        cr.stroke()
+
+        tx, ty = (w - tw) / 2.0, self.PAD_TOP
+        # glow lembut di belakang judul: beberapa salinan geser 1-2px (murah & halus)
+        for ox, oy, al in ((-2, 0, 0.10), (2, 0, 0.10), (0, -2, 0.10), (0, 2, 0.10), (0, 0, 0.16)):
+            cr.save()
+            cr.move_to(tx + ox, ty + oy)
+            cr.set_source_rgba(*ACCENT, al)
+            PangoCairo.show_layout(cr, title)
+            cr.restore()
+        cr.move_to(tx, ty)
+        cr.set_source_rgba(1, 1, 1, 0.97)
+        PangoCairo.show_layout(cr, title)
+
+        # garis aksen tipis di kiri & kanan judul (hanya bila masih ada ruang)
+        cr.set_line_width(2.6)
+        cr.set_source_rgba(*ACCENT2, 0.60)
+        for sx, ex in ((24, tx - 20), (tx + tw + 20, w - 24)):
+            if ex - sx > 26:
+                cr.move_to(sx, ty + th * 0.55)
+                cr.line_to(ex, ty + th * 0.55)
+        cr.stroke()
+
+        # subjudul: lebih besar & terang, tepat di bawah judul
+        cr.move_to((w - subw) / 2.0, ty + th + 16)
+        cr.set_source_rgba(0.84, 0.88, 0.99, 0.85)
+        PangoCairo.show_layout(cr, sub)
+
+        x = (self.sw - w) // 2
+        y = int(min(max(self.card_y + self.card_h + 66, self.card_y + self.card_h + 30),
+                    self.h - h - 40))
+        pix = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
+        if pix is None:                              # jaga-jaga: biar login tetap normal
+            raise SystemExit(0)
+        self.hint_xy = (x, y)                        # sudut kiri-atas
+        return pix, (x, y, w, h)                     # (x, y, lebar, tinggi)
+
     # ----------------------------------------------------------------- draw
     def on_draw(self, _w, cr):
-        # latar: wallpaper (dipotong tepat di bawah panel atas)
+        p = min(1.0, self.progress)
+
+        # -------- wallpaper: zoom + meredup yang naik di tengah lalu kembali normal
+        # (di akhir animasi = persis seperti wallpaper asli, jadi serah-terima ke
+        #  kartu login buatan greeter tidak terasa "lompat")
+        pulse = math.sin(math.pi * p) if p > 0.0 else 0.0
+        z = 1.0 + (ZOOM_PEAK - 1.0) * pulse
+        dim = DIM_PEAK * pulse
         cr.save()
-        cr.scale(self.sw / self.wall.get_width(), self.h / self.wall.get_height())
-        Gdk.cairo_set_source_pixbuf(cr, self.wall, 0, 0)
+        if z > 1.0:                      # zoom berpusat (Ken Burns) — origin tetap 0,0
+            cr.translate(self.sw / 2.0, self.h / 2.0)
+            cr.scale(z, z)
+            cr.translate(-self.sw / 2.0, -self.h / 2.0)
+        Gdk.cairo_set_source_pixbuf(cr, self.wall_scaled, 0, 0)
+        cr.paint()
+        cr.restore()
+        if dim > 0:
+            cr.set_source_rgba(0.03, 0.04, 0.09, dim)
+            cr.paint()
+
+        # -------- splash: menghilang (naik + membesar + memudar) saat reveal
+        if not self.animating and p <= 0.0:
+            self.draw_hint(cr, 1.0)
+        elif p > 0.0:
+            # splash cepat menyingkir (crossfade) supaya tidak tumpang-tindih
+            # dengan kartu yang sedang naik dari bawah
+            fade = 1.0 - ease_out_cubic(min(1.0, p / 0.28))
+            if fade <= 0.004:
+                fade = 0.0
+            if fade > 0:
+                self.draw_hint(cr, fade)
+
+        if p > 0.0:
+            self.draw_card(cr, p)
+        return False
+
+    def draw_hint(self, cr, fade):
+        """Splash (plat yang sudah jadi pixbuf) + aksen hidup: denyut & titik."""
+        t = time.time()
+        breathe = 0.5 + 0.5 * math.sin(t * 1.7)
+        x, y, w, h = self.hint_rect          # x,y = posisi; w,h = ukuran
+
+        # saat reveal: splash turun & mengecil sedikit — seperti "terdorong" kartu
+        grow = 1.0 - 0.06 * (1.0 - fade)
+        dy = (1.0 - fade) * 34.0
+        cr.save()
+        cr.translate(x + w / 2.0, y + h / 2.0 + dy)
+        cr.scale(grow, grow)
+        cr.translate(-(x + w / 2.0), -(y + h / 2.0))
+        Gdk.cairo_set_source_pixbuf(cr, self.hint_pix, x, y)
+        cr.paint_with_alpha((0.80 + 0.20 * breathe) * fade)
+        cr.restore()
+
+        # denyut lembut: garis aksen bawah menyapu kiri→kanan (murah: 1 gradasi)
+        cr.save()
+        cr.rectangle(x + 1, y + 1, w - 2, h - 2)
+        cr.clip()
+        sweep = (t * 0.30) % 1.0
+        bw = w * 0.42
+        bx = x - bw + (w + bw) * sweep
+        g = cairo.LinearGradient(bx, 0, bx + bw, 0)
+        g.add_color_stop_rgba(0.0, *ACCENT, 0.0)
+        g.add_color_stop_rgba(0.5, *ACCENT, 0.30 * breathe * fade)
+        g.add_color_stop_rgba(1.0, *ACCENT2, 0.0)
+        cr.set_source(g)
         cr.paint()
         cr.restore()
 
-        if not self.animating and self.progress <= 0.0:
-            self.draw_hint(cr)
+        # tiga titik yang menyala bergantian (indikator "menunggu input")
+        dot_r, gap = 4.6, 17.0
+        cx = x + w / 2.0
+        cy = y + h - 22
+        active = int(t * 2.4) % 3
+        for i in range(3):
+            dx = cx + (i - 1) * gap
+            on = 1.0 if i == active else 0.32
+            cr.arc(dx, cy, dot_r * (1.15 if i == active else 1.0), 0, 2 * math.pi)
+            cr.set_source_rgba(0.85, 0.89, 1.0, (0.30 + 0.70 * on) * fade)
+            cr.fill()
 
-        if self.progress > 0.0:
-            self.draw_card(cr)
-        return False
+    def draw_card(self, cr, p):
+        """Kartu masuk: slide + FLIP (skala Y, poros bawah) + perspektif + glow + sheen."""
+        enter = min(1.0, p / ENTER_PART)
+        settle = ease_out_cubic(max(0.0, (p - ENTER_PART) / (1.0 - ENTER_PART)))
 
-    def draw_hint(self, cr):
-        alpha = 0.45 + 0.45 * self.pulse
-        cx = self.sw / 2
-        cy = max(self.sh * 0.72, self.card_y + self.card_h + 70) - self.top_gap
+        # slide: sedikit "melambat di akhir" (bukan melesat lalu diam)
+        e = ease_out_cubic(enter)
+        dy = (1.0 - e) * SLIDE_PX
+        alpha = min(1.0, p * 9.0)                    # solid cepat, biar FLIP-nya terlihat
+        # FLIP: selesai di 55% waktu; dari 0.35 (terlipat) -> 1.0 dengan overshoot
+        flip = ease_out_back(min(1.0, p / FLIP_PART), 0.9)
+        sy = FLIP_START + (1.0 - FLIP_START) * flip
+        # perspektif: melebar di tengah lintasan (kartu terasa mendekat ke kamera)
+        sx = 1.0 + 0.06 * math.sin(math.pi * min(1.0, p / FLIP_PART)) * (1.0 - settle * 0.5)
 
-        layout = PangoCairo.create_layout(cr)
-        layout.set_text(self.a.hint, -1)
-        layout.set_font_description(Pango.FontDescription('Inter 13'))
-        w, h = layout.get_pixel_size()
-        cr.set_source_rgba(1, 1, 1, alpha)
-        cr.move_to(cx - w / 2, cy)
-        PangoCairo.show_layout(cr, layout)
-
-        small = PangoCairo.create_layout(cr)
-        small.set_text('(atau klik di mana saja)', -1)
-        small.set_font_description(Pango.FontDescription('Inter 10'))
-        sw, sh = small.get_pixel_size()
-        cr.set_source_rgba(1, 1, 1, alpha * 0.72)
-        cr.move_to(cx - sw / 2, cy + h + 8)
-        PangoCairo.show_layout(cr, small)
-
-    def draw_card(self, cr):
-        p = ease_out_cubic(min(1.0, self.progress))
-        dy = (1.0 - p) * SLIDE_PX                    # masuk dari bawah
-        alpha = min(1.0, self.progress * 1.6)        # fade cepat di awal
-        sy = 0.90 + 0.10 * p                         # sedikit "flip" membuka
-
-        cx = self.card_x + self.card_w / 2
+        cx = self.card_x + self.card_w / 2.0
         bottom = self.card_y + self.card_h + dy
+
+        # --- glow aksen di belakang kartu: muncul di tengah, habis di akhir
+        ga = 0.55 * (math.sin(math.pi * p) ** 0.8) if p < 1.0 else 0.0
+        if ga > 0.004:
+            for pad, al in ((10, 0.20), (22, 0.12), (40, 0.07)):
+                rounded_path(cr, self.card_x - pad, self.card_y + dy - pad,
+                             self.card_w + pad * 2, self.card_h + pad * 2, 26 + pad)
+                cr.set_source_rgba(*ACCENT, al * ga * 2)
+                cr.fill()
+
+        # --- kartu: transform (anchor di tepi bawah → terasa "terbuka" ke atas)
         cr.save()
         cr.translate(cx, bottom)
-        cr.scale(1.0, sy)
+        cr.scale(sx, sy)
         cr.translate(-cx, -bottom)
         Gdk.cairo_set_source_pixbuf(cr, self.card, self.card_x, self.card_y + dy)
         cr.paint_with_alpha(alpha)
-        # kilau tipis saat kartu masih membuka
-        if p < 0.75:
-            glint = (0.75 - p) / 0.75 * 0.10
-            cr.set_source_rgba(1, 1, 1, glint)
+
+        # --- kilau (sheen) menyapu permukaan kartu, ikut miring saat flip
+        if enter < 1.0:
+            sheen = ease_in_out_sine(min(1.0, p / 0.62))
+            bw = self.card_w * 0.26
+            bx = self.card_x - bw + (self.card_w + 2 * bw) * sheen
+            cr.save()
             cr.rectangle(self.card_x, self.card_y + dy, self.card_w, self.card_h)
-            cr.fill()
+            cr.clip()
+            g = cairo.LinearGradient(bx, self.card_y + dy, bx + bw,
+                                     self.card_y + dy + self.card_h)
+            amp = 0.26 * (1.0 - enter * 0.5) * alpha
+            g.add_color_stop_rgba(0.0, 1, 1, 1, 0.0)
+            g.add_color_stop_rgba(0.5, 1, 1, 1, amp)
+            g.add_color_stop_rgba(1.0, 0.80, 0.86, 1.0, 0.0)
+            cr.set_source(g)
+            cr.paint()
+            cr.restore()
         cr.restore()
+
+    # ------------------------------------------------- render 1 frame (dev)
+    def render_frame(self, p, out_path):
+        """Gambar satu frame animasi ke PNG tanpa menampilkan window.
+
+        Dipakai untuk memeriksa/menyetel animasi (mis. lewat --frame-at).
+        """
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.sw, self.h)
+        cr = cairo.Context(surf)
+        keep_p, keep_anim = self.progress, self.animating
+        self.progress, self.animating = p, p > 0.0
+        self.on_draw(self.area, cr)
+        surf.write_to_png(out_path)
+        self.progress, self.animating = keep_p, keep_anim
+        return out_path
 
     # ---------------------------------------------------------------- input
     def on_tick(self):
-        self.pulse = abs((time.time() * 0.6) % 2 - 1)          # 0..1 naik-turun
-        if self.pulse < 0.0:
-            self.pulse = -self.pulse
         if self.animating:
             self.progress += TICK_MS / max(1.0, float(self.a.duration))
             if self.progress >= 1.0:
                 self.progress = 1.0
+                self.area.queue_draw()
                 self.finish()
                 return False
-        self.area.queue_draw()
+            self.area.queue_draw()                       # animasi: repaint penuh
+        else:
+            self.area.queue_draw_area(*self.hint_area)   # idle: cuma area splash
         return True
 
     def on_input(self, _w, _e):
@@ -174,7 +402,7 @@ class Overlay(Gtk.Window):
     def reveal(self):
         if not self.animating and self.progress <= 0.0:
             self.animating = True
-            log(self.a.log, 'reveal: kartu login muncul')
+            log(self.a.log, 'reveal: kartu login muncul (durasi %sms)' % self.a.duration)
         return False
 
     def finish(self):
@@ -200,27 +428,16 @@ class Overlay(Gtk.Window):
         if not wid:
             return
         xid = int(str(wid), 0)
-        # jalur 1: GDK (tanpa dependensi tambahan)
         try:
             gi.require_version('GdkX11', '3.0')
             from gi.repository import GdkX11
             win = GdkX11.X11Window.foreign_new_for_display(Gdk.Display.get_default(), xid)
             if win is not None:
                 win.focus(Gdk.CURRENT_TIME)
-                log(self.a.log, 'fokus dikembalikan ke 0x%x (gdk)' % xid)
+                log(self.a.log, 'fokus dikembalikan ke 0x%x' % xid)
                 return
         except Exception as e:
-            log(self.a.log, 'fokus via gdk gagal: %s' % e)
-        # jalur 2: python-xlib, kalau terpasang
-        try:
-            from Xlib import display as xdisplay, X
-            d = xdisplay.Display()
-            d.set_input_focus(d.create_resource_object('window', xid), X.RevertToParent,
-                              X.CurrentTime)
-            d.sync()
-            log(self.a.log, 'fokus dikembalikan ke 0x%x (xlib)' % xid)
-        except Exception as e:
-            log(self.a.log, 'fokus tidak bisa dikembalikan: %s' % e)
+            log(self.a.log, 'fokus gagal dikembalikan: %s' % e)
 
 
 def main():
@@ -231,10 +448,16 @@ def main():
     ap.add_argument('--card-y', type=int, required=True)
     ap.add_argument('--top-gap', type=int, default=0)
     ap.add_argument('--hint', default=HINT_TEXT)
+    ap.add_argument('--hint-sub', default=HINT_SUB)
+    ap.add_argument('--hint-size', type=int, default=34, help='ukuran font splash (px)')
     ap.add_argument('--timeout', type=int, default=120, help='detik; 0 = tanpa auto-muncul')
-    ap.add_argument('--duration', type=int, default=480, help='durasi animasi (ms)')
+    ap.add_argument('--auto', type=int, default=0, help='detik; kartu muncul sendiri (0=nonaktif)')
+    ap.add_argument('--duration', type=int, default=700, help='durasi animasi (ms)')
     ap.add_argument('--focus-window', default='')
     ap.add_argument('--log', default='')
+    # pengembangan/penyetelan: simpan beberapa frame animasi ke PNG lalu keluar
+    ap.add_argument('--frame-at', default='', help='mis. 0,0.25,0.5,1 (progress 0..1)')
+    ap.add_argument('--frame-out', default='', help='tulis frame ke <DIR>/frame-<n>.png')
     a = ap.parse_args()
     sys._anim_log = a.log
 
@@ -246,11 +469,18 @@ def main():
         log(a.log, 'overlay gagal dibuat: %s' % e)
         return 0                                    # aman: layar login tampil normal
 
+    if a.frame_at and a.frame_out:
+        os.makedirs(a.frame_out, exist_ok=True)
+        for i, val in enumerate(a.frame_at.split(',')):
+            os.path.join(a.frame_out, 'frame-%d.png' % i)
+            print(ov.render_frame(float(val), os.path.join(a.frame_out, 'frame-%d.png' % i)))
+        return 0
+
     ov.show_all()
     ov.steal_focus()
     for ms in (60, 200, 500, 1000):                 # greeter sering merebut fokus lagi
         GLib.timeout_add(ms, lambda: (ov.animating or ov.steal_focus()) and False)
-    log(a.log, 'overlay tampil (wallpaper saja) — menunggu tombol')
+    log(a.log, 'overlay tampil (wallpaper + splash) — menunggu tombol')
     Gtk.main()
     return 0
 

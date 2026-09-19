@@ -7,6 +7,8 @@
 #   bash scripts/preview-login.sh --anim     # coba ANIMASI: wallpaper dulu, lalu
 #                                            # tekan tombol apa saja -> kartu login
 #                                            # masuk dari bawah (seperti saat login)
+#   bash scripts/preview-login.sh --anim 30 5  # sama, tapi kartu muncul sendiri
+#                                            # setelah 5 detik (tanpa tekan tombol)
 #
 # Pratinjau statis memakai UI XML asli greeter + CSS tema + avatar + panel +
 # wallpaper. Mode --anim memakai overlay animasi yang sama dengan yang dipasang
@@ -32,6 +34,7 @@ python3 -c 'import PIL' 2>/dev/null || { say "python3-pil belum terpasang (sudo 
 # ------------------------------------------------------------------ mode demo
 if [ "${1:-}" = "--anim" ]; then
     DETIK="${2:-30}"
+    AUTO="${3:-0}"          # >0: kartu muncul sendiri setelah N detik (demo)
     TMP="$(mktemp -d /tmp/anime-login-anim-XXXX)"
     SRC="$BG_SHARP"
     [ -f "$SRC" ] || SRC="$BG_REPO"
@@ -51,7 +54,8 @@ if [ "${1:-}" = "--anim" ]; then
     exec python3 "$SRC_DIR/scripts/greeter-anim.py" \
         --wallpaper "$TMP/login-bg.jpg" --card "$TMP/card.png" \
         --card-x "$CX" --card-y "$CY" --top-gap 0 \
-        --timeout "$DETIK" --duration 520 --log "$TMP/anim.log"
+        --hint-size 34 --duration 700 --auto "$AUTO" \
+        --timeout "$DETIK" --log "$TMP/anim.log"
 fi
 
 # ----------------------------------------------------------- mode pratinjau biasa
