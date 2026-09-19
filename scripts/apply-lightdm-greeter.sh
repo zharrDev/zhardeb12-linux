@@ -9,7 +9,7 @@
 #
 # Yang dipasang:
 #   - Tema greeter custom (CSS glass) -> /usr/share/themes/anime-glass-greeter
-#   - Wallpaper login -> /usr/share/backgrounds/anime-glass/login-bg.jpg
+#   - Wallpaper login TAJAM -> /usr/share/backgrounds/anime-glass/login-bg.jpg
 #     (prioritas: config/wallpapers/login/, fallback: wallpaper aktif desktop)
 #   - Tekstur kaca blur (frosted glass) -> glass-panel.jpg + glass-bar.jpg
 #     (potongan wallpaper persis di area kartu & panel, blur pre-baked)
@@ -17,7 +17,7 @@
 #   - Animasi layar login: wallpaper dulu, kartu muncul saat tombol ditekan
 #     (overlay di atas greeter asli; matikan dengan --no-anim)
 #   - Font Inter + tema/ikon system-wide (senada sesi desktop)
-#   - Konfig greeter: kartu TENGAH layar, jam+tanggal Indonesia, panel glass
+#   - Konfig greeter: kartu TENGAH layar, panel glass (jam ada di atas kartu)
 #   - Login otomatis (matikan dengan --no-autologin)
 #
 set -euo pipefail
@@ -53,6 +53,37 @@ if ! command -v lightdm-gtk-greeter >/dev/null 2>&1 || ! dpkg -s fonts-inter >/d
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lightdm lightdm-gtk-greeter fonts-inter accountsservice
 fi
 ok "lightdm + lightdm-gtk-greeter + fonts-inter + accountsservice siap"
+
+# ---------------------------------------------------- 0b) font Poppins (jam)
+# Jam layar login ditulis dengan Poppins. Font ini tidak ada di repo Debian,
+# jadi diunduh sekali dari Google Fonts ke /usr/local/share/fonts (system-wide
+# supaya greeter — yang jalan sebagai user lightdm — juga bisa membacanya).
+# Kalau unduhan gagal, CSS otomatis jatuh ke Inter (lihat font-family di CSS).
+POPPINS_DIR="/usr/local/share/fonts/poppins"
+if fc-list 2>/dev/null | grep -qi 'Poppins'; then
+    ok "font Poppins sudah tersedia"
+else
+    mkdir -p "$POPPINS_DIR"
+    POPPINS_OK=1
+    for w in Regular Medium SemiBold Bold; do
+        f="$POPPINS_DIR/Poppins-$w.ttf"
+        [ -s "$f" ] && continue
+        url="https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-$w.ttf"
+        if command -v curl >/dev/null 2>&1; then
+            curl -fsSL --retry 2 -o "$f" "$url" || POPPINS_OK=0
+        elif command -v wget >/dev/null 2>&1; then
+            wget -q -O "$f" "$url" || POPPINS_OK=0
+        else
+            POPPINS_OK=0
+        fi
+    done
+    if [ "$POPPINS_OK" -eq 1 ] && fc-cache -f >/dev/null 2>&1; then
+        ok "font Poppins -> $POPPINS_DIR"
+    else
+        rm -f "$POPPINS_DIR"/*.ttf 2>/dev/null || true
+        say "gagal mengunduh Poppins — jam layar login pakai Inter (font fallback)"
+    fi
+fi
 
 # Font Nerd Font user -> system-wide (agar tersedia di greeter & display manager)
 for d in "/home/$REAL_USER/.local/share/fonts" "$HOME/.local/share/fonts"; do
@@ -107,7 +138,7 @@ install -m 644 "$LOGIN_SRC" "$LOGIN_BG_DIR/login-bg-sharp.jpg"
 
 # ---------------------------- 2b) aset tampilan login (background + kaca + avatar)
 # Greeter TIDAK punya compositor -> blur dipakai di muka (pre-baked):
-#   login-bg.jpg     : wallpaper di-blur lembut + digelapkan + vignette
+#   login-bg.jpg     : wallpaper TAJAM (tanpa blur) + vignette tipis
 #   glass-panel.jpg  : tekstur kaca kartu (crop tepat di area kartu, blur ringan)
 #   glass-bar.jpg    : tekstur kaca panel atas (band paling atas background)
 AVATAR_SRC="$SRC_DIR/config/lightdm/avatar/anime-avatar.png"
@@ -121,15 +152,17 @@ if command -v xrandr >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
 fi
 
 if command -v python3 >/dev/null 2>&1 && [ -f "$SRC_DIR/scripts/login-assets.py" ]; then
+    # Latar layar login TAJAM (bg-blur 0) — wallpaper tampil apa adanya, hanya
+    # diberi vignette tipis supaya kartu kaca & jam tetap menonjol.
     python3 "$SRC_DIR/scripts/login-assets.py" --src "$LOGIN_SRC" --outdir "$LOGIN_BG_DIR" \
-        --size "$SCREEN_SIZE" --bg-blur 16 --card-blur 8 --dim 0.90 --vignette 0.60 \
+        --size "$SCREEN_SIZE" --bg-blur 0 --card-blur 10 --dim 0.94 --vignette 0.62 \
         || say "gagal membuat aset login — pakai wallpaper apa adanya"
 fi
 # jaring terakhir: pastikan ketiga berkas ada (tanpa blur pun tetap tampil)
 [ -f "$LOGIN_BG_DIR/login-bg.jpg" ]    || install -m 644 "$LOGIN_SRC" "$LOGIN_BG_DIR/login-bg.jpg"
 [ -f "$LOGIN_BG_DIR/glass-panel.jpg" ] || cp "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-panel.jpg"
 [ -f "$LOGIN_BG_DIR/glass-bar.jpg" ]   || cp "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-bar.jpg"
-ok "Aset login -> login-bg.jpg (blur+vignette), glass-panel.jpg, glass-bar.jpg"
+ok "Aset login -> login-bg.jpg (TAJAM + vignette), glass-panel.jpg, glass-bar.jpg"
 
 # Avatar anime untuk user login (juga dipakai greeter via default-user-image)
 if [ -f "$AVATAR_SRC" ]; then
@@ -171,16 +204,20 @@ duration=700     # durasi kartu masuk+flip (milidetik) — 500 = cepat, 900 = dr
 timeout=120      # detik; kartu muncul sendiri bila tak ada tombol ditekan
 auto=0           # detik; >0 = kartu muncul sendiri setelah N detik (demo)
 hint_size=34     # ukuran font SPLASH di layar login (px)
-# hint=Tekan tombol apa saja untuk masuk
-# hint_sub=klik di mana saja · kartu login akan muncul
+# hint=          # teks splash; KOSONG = tanpa teks (cuma titik-titik halus)
+# hint_sub=
 hero=1           # 1 = tampilkan JAM BESAR di tengah sebelum form muncul
-hero_size=94     # ukuran font jam besar (px)
+hero_size=94     # ukuran font jam besar di tengah (px)
 hero_caption=SELAMAT DATANG   # tulisan kecil di atas jam (kosongkan bila tak mau)
+clock_size=40    # ukuran jam setelah form muncul (di atas kartu login, px)
+clock_gap=54     # jarak jam ke tepi atas kartu login (px)
+stay=1           # 1 = jam tetap tampil di atas form setelah animasi
 EOF
         chmod 644 "$ANIM_CONF"
     else
         # conf lama: tambahkan setelan BARU saja (jangan sentuh yang sudah ada)
-        for kv in 'hero=1' 'hero_size=94' 'hero_caption=SELAMAT DATANG'; do
+        for kv in 'hero=1' 'hero_size=94' 'hero_caption=SELAMAT DATANG' \
+                  'clock_size=40' 'clock_gap=54' 'stay=1'; do
             key="${kv%%=*}"
             grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$ANIM_CONF" \
                 || printf '%s\n' "$kv" >> "$ANIM_CONF"

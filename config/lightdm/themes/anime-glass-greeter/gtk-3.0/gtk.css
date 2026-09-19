@@ -44,24 +44,24 @@
     font-size: 13px;
 }
 
-/* --- JAM & TANGGAL: dibuat BESAR & tegas (pusat perhatian panel) ---
-   Warnanya sengaja lavendel terang (bukan putih murni) supaya menyatu dengan
-   palet kartu & jam besar di tengah layar, dan tetap jauh lebih terang dari
-   kaca panel — itu juga yang membuat deteksi otomatis jam di
-   scripts/greeter-textures.py bisa menemukannya. */
+/* --- JAM: sengaja TIDAK dipakai di panel ---
+   Jam layar login digambar overlay animasi (scripts/greeter-anim.py) memakai
+   font Poppins: besar di tengah layar saat belum di-enter, lalu naik dan
+   menetap DI ATAS kartu login. Aturan di bawah ini hanya berlaku kalau kamu
+   menambahkan '~clock' kembali ke `indicators` (jam akan tampil dobel). */
 #clock_menuitem,
 #panel_window #clock_menuitem,
 #panel_window #clock_menuitem label,
 #panel_window #clock_menuitem .label,
 #panel_window .menubar > #clock_menuitem {
-    font-size: 23px;
-    font-weight: 700;
+    font-family: Poppins, Inter, sans-serif;
+    font-size: 20px;
+    font-weight: 600;
     color: #e9edff;
     letter-spacing: 0.6px;
     padding: 2px 15px;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.62),
-                 0 0 20px rgba(180, 190, 254, 0.30),
-                 0 0 32px rgba(95, 162, 206, 0.22);
+                 0 0 20px rgba(180, 190, 254, 0.30);
 }
 #panel_window #clock_menuitem:hover {
     background-color: transparent;

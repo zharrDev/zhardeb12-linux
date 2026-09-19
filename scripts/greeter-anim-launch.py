@@ -8,9 +8,11 @@ greeter sudah hidup tapi greeter belum/tengah digambar. Tugasnya:
   2. potret layarnya (yang berisi wallpaper + panel + kartu login yang sudah
      digambar greeter asli — autentikasi tetap milik greeter, bukan script ini),
   3. minta scripts/greeter-textures.py memotong tekstur dari potret itu:
-     kartu login, strip panel (area jam ditambal), dan potongan jam asli,
-  4. jalankan overlay (greeter-anim.py) yang menyembunyikan kartu & jam lebih
-     dulu, lalu memunculkannya kembali saat ada tombol ditekan.
+     kartu login + strip panel (beserta tepi atas kartu untuk menaruh jam),
+  4. jalankan overlay (greeter-anim.py) yang menyembunyikan kartu lebih dulu:
+     layar menampilkan wallpaper TAJAM + jam besar di tengah (dengan tanggal),
+     lalu saat ada tombol ditekan kartu naik dari bawah dan jam terbang ke atas
+     form (tanggal hilang) lalu menetap di sana.
 
 Kalau ada apa pun yang tidak wajar (window tak muncul, potret beda dari
 wallpaper, PIL tidak ada, dsb) script hanya mencatat log dan keluar — layar
@@ -231,32 +233,30 @@ def main():
             '--wallpaper', WALLPAPER,
             '--card', os.path.join(texdir, 'card.png'),
             '--card-x', str(card[0]), '--card-y', str(card[1]),
+            '--card-top', str(geo.get('card_top', 0)),
             '--top-gap', str(geo.get('top_gap', 0)),
             '--timeout', cfg.get('timeout', '120'),
             '--duration', cfg.get('duration', '700'),
             '--hero', cfg.get('hero', '1'),
             '--hero-size', cfg.get('hero_size', '94'),
             '--hero-caption', cfg.get('hero_caption', 'SELAMAT DATANG'),
-            '--hint', cfg.get('hint', 'Tekan tombol apa saja untuk masuk'),
-            '--hint-sub', cfg.get('hint_sub',
-                                  'klik di mana saja · kartu login akan muncul'),
+            '--clock-size', cfg.get('clock_size', '40'),
+            '--clock-gap', cfg.get('clock_gap', '46'),
+            '--stay', cfg.get('stay', '1'),
+            '--hint', cfg.get('hint', ''),
+            '--hint-sub', cfg.get('hint_sub', ''),
             '--hint-size', cfg.get('hint_size', '34'),
             '--auto', cfg.get('auto', '0'),
             '--log', LOG]
     panel_png = os.path.join(texdir, 'panel.png')
     if os.path.isfile(panel_png):
         args += ['--panel-strip', panel_png]
-    if geo.get('clock'):
-        clock = geo['clock']
-        args += ['--clock-crop', os.path.join(texdir, 'clock.png'),
-                 '--clock-x', str(clock[0]), '--clock-y', str(clock[1]),
-                 '--clock-w', str(clock[2] - clock[0]),
-                 '--clock-h', str(clock[3] - clock[1])]
     if wid:
         args += ['--focus-window', wid]
     args += a.extra
-    log('kartu %s panel=%s jam=%s top_gap=%s window=%s'
-        % (card, geo.get('panel'), geo.get('clock'), geo.get('top_gap'), wid or '(pratinjau)'))
+    log('kartu %s (atas %s) panel=%s top_gap=%s window=%s'
+        % (card, geo.get('card_top'), geo.get('panel'), geo.get('top_gap'),
+           wid or '(pratinjau)'))
 
     if not preview:
         stop_previous()

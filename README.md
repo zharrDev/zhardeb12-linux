@@ -276,7 +276,7 @@ sesuai permintaan. Gambar asset lainnya ditempatkan di lokasi yang cocok:
 | `影.jpeg` | **Banner conky** (atas kartu anime-glass) |
 | `968133251138558907.jpeg` | **Avatar conky** (lingkaran kecil di header kartu) |
 | `1147432811330550518.jpeg` | **Background terminal kitty** (dim, `background_opacity 0.45`) |
-| `config/wallpapers/login/anime-login-bg.jpg` | **Background layar login LightDM** (1920×1080) + sumber tekstur kaca kartu login |
+| `config/wallpapers/login/blue-girl.jpg` | **Background layar login LightDM** (1920×1080, dipakai TAJAM) + sumber tekstur kaca kartu login |
 | `影-removebg-preview.png` | **Avatar user di kartu login LightDM** (bulat 160px, sudah disiapkan di `config/lightdm/avatar/`) |
 
 Banner & avatar di-generate oleh `update-wallpaper.sh` ke
@@ -428,16 +428,16 @@ xscreensaver. Installer menulis override autostart
 
 ## 🔐 Tampilan Login Screen (LightDM) — v4 "Frosted Aurora"
 
-Layar login dibuat senada dengan desktop: wallpaper anime + **kartu login kaca
-buram (frosted glass) di TENGAH layar**, ukuran besar, sudut membulat 24px,
-border gradasi biru→ungu→lavender, **avatar anime bulat** untuk user, entry
-password & tombol pill dengan glow aksen, plus panel jam+tanggal di atas
-(format Indonesia) — **jamnya sengaja besar (23px, tebal)** supaya langsung
-terbaca saat login.
+Layar login dibuat senada dengan desktop: **wallpaper anime TAJAM (tanpa blur)**
+sebagai latar, **JAM BESAR + tanggal di tengah layar** saat idle, lalu **kartu
+login kaca buram (frosted glass) di TENGAH layar** — ukuran besar, sudut
+membulat 24px, border gradasi biru→ungu→lavender, **avatar anime bulat** untuk
+user, entry password & tombol pill dengan glow aksen. Setelah kartu muncul, jam
+naik dan **menetap di ATAS form** (di atas border kartu).
 
-Wallpaper login aktif: `config/wallpapers/login/anime-login-bg.jpg`
-(**anime blue-girl**, gelap-navy sehingga kartu kaca & jam kontras). Ganti
-kapan saja dengan menaruh gambar landscape lain di folder itu lalu deploy ulang.
+Wallpaper login aktif: `config/wallpapers/login/blue-girl.jpg` (**anime
+blue-girl**, navy gelap sehingga kartu kaca & jam kontras). Ganti kapan saja
+dengan menaruh gambar landscape lain di folder itu lalu deploy ulang.
 
 ```bash
 sudo bash scripts/apply-lightdm-greeter.sh                # pasang (login otomatis aktif)
@@ -445,21 +445,23 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin # tampil kartu login (
 ```
 
 Yang dipasang:
-- `/usr/share/backgrounds/anime-glass/login-bg.jpg` — **wallpaper login di-blur
-  lembut + digelapkan + vignette** (tepi lebih gelap) supaya kartu kacanya
-  menonjol; versi tajamnya diarsipkan sebagai `login-bg-sharp.jpg`. Sumber:
-  `config/wallpapers/login/` (fallback: wallpaper aktif `anime-1920x1080.jpg`)
+- `/usr/share/backgrounds/anime-glass/login-bg.jpg` — **wallpaper login TAJAM**
+  (tanpa blur; hanya `--dim 0.94` + vignette tipis `0.62` supaya kartu & jam
+  menonjol). Versi mentahnya juga diarsipkan sebagai `login-bg-sharp.jpg`.
+  Sumber: `config/wallpapers/login/` (fallback: wallpaper aktif desktop)
 - `/usr/share/backgrounds/anime-glass/glass-panel.jpg` + `glass-bar.jpg` —
-  **tekstur kaca** (potongan area kartu 560×350 dan band atas panel 48px) diambil
-  dari wallpaper yang sama, jadi kartu & panel "menyatu" dengan latar
+  **tekstur kaca** (potongan area kartu 560×350 dan band atas panel 48px,
+  di-blur ringan 10px) diambil dari wallpaper yang sama, jadi kartu & panel
+  tetap terasa kaca di atas latar yang tajam
 - Generator asetnya satu tempat: `scripts/login-assets.py` — dipakai baik oleh
   script deploy **maupun** preview. Nada blurnya bisa disetel:
   ```bash
   python3 scripts/login-assets.py --src wallpaper.jpg --outdir /tmp/out \
-      --bg-blur 16 --card-blur 8 --dim 0.90 --vignette 0.60 --size 1920x1080
-  #  --bg-blur  tinggi = latar makin lembut   --card-blur  kecil = kartu makin tajam
-  #  --dim     pengali kecerahan latar        --vignette  0.60 = sudut lebih gelap
-  #  --bg-blur 0 = latar tajam (tanpa blur/vignette)
+      --bg-blur 0 --card-blur 10 --dim 0.94 --vignette 0.62 --size 1920x1080
+  #  --bg-blur 0   = latar TAJAM (tanpa blur)  ← dipakai sekarang
+  #  --bg-blur 16  = latar makin lembut (kalau mau gaya dreamy lagi)
+  #  --card-blur   = kekaburan tekstur kaca kartu (10 = kaca halus)
+  #  --dim         = pengali kecerahan latar   --vignette 0.62 = sudut lebih gelap
   ```
   Ganti wallpaper login? Taruh saja gambar landscape baru di
   `config/wallpapers/login/` (jpg/png) lalu jalankan deploy ulang — warna blur,
@@ -468,16 +470,16 @@ Yang dipasang:
   sekaligus dipasang ke `~/.face` (yang lama di-backup `~/.face.bak.<tanggal>`)
 - `/usr/share/themes/anime-glass-greeter/` — tema CSS glass khusus greeter
 - Tema GTK + ikon **Tela-circle-blue-dark** + font **Inter 11** system-wide
-- `lightdm-gtk-greeter.conf` — kartu `position=50%,center`, jam
-  `Senin, 16 September 2026 • 14:30`, panel glass di atas
+- `lightdm-gtk-greeter.conf` — kartu `position=50%,center`, panel glass di atas
+  (`indicators=~host;~spacer;~session;~power`) — **jam TIDAK di panel**, jam
+digambar overlay animasi (lihat bawah)
 - Konfigurasi lama otomatis dibackup (`*.bak.<tanggal>`)
 
-**Jam di layar login:** saat idle jam tampil **besar di tengah**; setelah kamu
-tekan tombol apa saja, jam itu terbang ke posisi jam panel (di atas form) dan
-jam asli menggantikannya di posisi yang sama — jadi setelah form muncul, jam ada
-**di atas form**. Jam besar pakai font Inter Bold + detik aksen lavender,
-tanggal Indonesia, dan garis gradasi biru→ungu; jam panel dibuat lavendel
-terang supaya senada.
+**Jam di layar login:** saat idle jam tampil **besar di tengah** (font Poppins,
+fallback Inter) dengan caption kecil, garis gradasi biru→ungu, dan **hari/tanggal
+Indonesia** di bawahnya. Setelah kamu menekan tombol apa saja, **tanggal hilang**
+dan jam itu terbang **ke atas kartu login** (di atas border form) lalu menetap di
+sana — jadi setelah form muncul, jam ada **di atas form**.
 
 **Ganti avatar (mis. pakai wajah lain):** ganti satu file ini lalu deploy ulang.
 ```bash
@@ -502,47 +504,54 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin
 
 ### ✨ Animasi: JAM BESAR di tengah → form login menyusul
 
-Saat layar login muncul, yang tampil **cuma wallpaper + JAM BESAR di tengah
-layar**: caption kecil `SELAMAT DATANG`, jam `HH:MM` besar (94px) + detik aksen,
-garis gradasi biru→ungu, dan tanggal Indonesia; di bawahnya SPLASH kaca
-`Tekan tombol apa saja untuk masuk` + subjudul kecil, tiga titik yang menyala
-bergantian, dan sapuan kilau biru di permukaan splash.
+Saat layar login muncul, yang tampil **cuma wallpaper (TAJAM, tanpa blur) + JAM
+BESAR di tengah layar**: caption kecil `SELAMAT DATANG`, jam `HH:MM` besar (94px)
++ detik aksen, garis gradasi biru→ungu, dan **hari/tanggal Indonesia** di
+bawahnya. Tidak ada tulisan "tekan enter" — cuma **tiga titik halus** di bawah
+layar yang menyala bergantian sebagai penanda menunggu.
 
-**Jam panel asli disembunyikan** selama fase ini supaya di layar tidak ada dua
-jam: overlay menggambar **strip panel ASLI** (potret greeter, dipakai apa
-adanya) yang area jamnya sudah ditambal dari wallpaper — jadi panelnya tetap
-tampak persis aslinya, hanya jamnya yang belum muncul.
+**Panel atas digambar apa adanya** dari strip panel potret greeter (panelnya
+memang sudah tanpa jam), jadi tidak ada elemen yang "muncul mendadak".
 
 Begitu ada tombol ditekan (atau diklik), dalam ±0,7 detik:
 
 | Lapisan | Efek |
 | --- | --- |
-| Jam besar | terbang ke **posisi jam panel** sambil mengecil & memudar (kurva halus: pelan → cepat → mendarat lembut) — jam berakhir **DI ATAS form login** |
-| Jam asli | muncul kembali (crossfade) tepat di posisi jam besar mendarat |
+| Tanggal + caption | memudar lebih dulu (jadi saat form muncul tinggal jam) |
+| Jam besar | terbang **ke atas kartu** sambil mengecil (kurva halus: pelan → cepat → mendarat lembut) — berakhir persis di **atas border form** |
+| Jam final | versi tajam (tidak lagi ikut flip) muncul ber-crossfade di titik mendarat dengan sedikit "zoom-in", lalu **menetap** di sana |
 | Kartu | **FLIP** — skala vertikal 0.35→1 dengan sedikit overshoot (terbuka dari bawah) + slide `ease-out` 170px |
 | Perspektif | kartu melebar sesaat di tengah lintasan (terasa mendekat ke kamera) |
 | Kilau (sheen) | gradasi cahaya menyapu diagonal di permukaan kartu |
-| Glow | halo aksen biru→ungu yang tumbuh lalu habis tepat saat kartu mendarat |
+| Glow | halo aksen biru→ungu (radial, bukan kotak) tumbuh lalu habis tepat saat kartu mendarat |
 | Wallpaper | zoom Ken-Burns + menggelap di tengah animasi, lalu **kembali persis normal** |
-| Splash | turun + mengecil + memudar cepat (crossfade) supaya tidak tumpang-tindih |
+| Titik menunggu | memudar sambil turun sedikit (crossfade) |
 
-Di akhir animasi **semuanya kembali identik dengan yang digambar greeter** —
-termasuk panel dan jamnya. Sudah diukur: frame terakhir berbeda **<0,1% piksel**
-dari layar login asli, jadi serah-terima ke kartu login & jam asli **tanpa
-lompatan**.
+Di akhir animasi **kartu kembali identik dengan yang digambar greeter** (sudah
+diukur: frame terakhir beda **<0,4% piksel** dari layar login asli — praktis cuma
+jam yang kita tambahkan). Setelah itu overlay menutup diri dan digantikan
+**window kecil berisi jam** yang menetap di atas form:
 
-Semua efek digambar dengan Cairo (tanpa blur realtime) dan jam besar + splash
-di-render **sekali** jadi pixbuf — saat idle repaint-nya cuma area kecil, dan
-repaint penuh hanya ±0,7 detik saat animasi jalan (RAM greeter tetap ±20–30 MB).
+- isinya **potongan wallpaper 1:1** sesuai posisinya di layar + jam final →
+  menyatu sempurna dengan latar, tidak ada kotak yang terlihat;
+- **tidak bisa menerima fokus & klik** (area masuknya dikosongkan) — jadi kamu
+  tetap bisa langsung mengetik password dan menekan tombol di kartu;
+- kalau **window greeter hilang** (artinya kamu berhasil login) window jam ini
+  menutup diri sendiri, jadi tidak ada jam "tertinggal" di desktop.
+
+Semua efek digambar dengan Cairo (tanpa blur realtime) dan jam besar + ekstra
+di-render **sekali** jadi pixbuf — saat idle repaint-nya cuma area kecil (titik
+menunggu), dan repaint penuh hanya ±0,7 detik saat animasi jalan (RAM greeter
+tetap ±20–30 MB).
 
 Semua tekstur dipotong dari **satu potret layar login** oleh satu tool:
 `scripts/greeter-textures.py` → `card.png` (kartu + bayangannya), `panel.png`
-(strip panel tanpa jam), `clock.png` (potongan jam asli), plus kotak jam & kartu
-dalam JSON. Tool yang sama dipakai **jalur produksi** (`greeter-anim-launch.py`)
-dan **pratinjau** (`preview-login.sh --anim`) — jadi yang kamu lihat di
-pratinjau = yang nanti muncul saat login. Deteksi dijaga ketat (kartu harus
-masuk akal, latar potret harus ≥75% sama dengan wallpaper) dan kalau ada yang
-aneh animasinya langsung dibatalkan — layar login tampil normal.
+(strip panel + bayangan), plus kotak kartu & **tepi atas kartu** (`card_top` —
+acuan menaruh jam di atas form) dalam JSON. Tool yang sama dipakai **jalur
+produksi** (`greeter-anim-launch.py`) dan **pratinjau** (`preview-login.sh`) —
+jadi yang kamu lihat di pratinjau = yang nanti muncul saat login. Deteksi dijaga
+ketat (kartu harus masuk akal, latar potret harus ≥75% sama dengan wallpaper) dan
+kalau ada yang aneh animasinya langsung dibatalkan — layar login tampil normal.
 
 Aman by design: **autentikasi tetap milik `lightdm-gtk-greeter` bawaan**, lapisan
 animasi hanya melukis di atasnya. Kalau overlay gagal/tidak jalan, layar login
@@ -550,8 +559,9 @@ langsung tampil normal; kalau tidak ada tombol ditekan, kartu muncul sendiri
 setelah 120 detik (jadi tidak mungkin "terkunci").
 
 ```bash
-bash scripts/preview-login.sh --anim 20     # coba transisinya (tekan tombol!), ESC = tutup
-bash scripts/preview-login.sh --anim 30 5   # kartu muncul sendiri setelah 5 detik
+bash scripts/preview-login.sh          # 30 detik: tekan tombol -> lihat transisinya
+bash scripts/preview-login.sh 30 5     # kartu muncul sendiri setelah 5 detik
+bash scripts/preview-login.sh --card   # potret statis kartu login asli (tanpa jam)
 ```
 
 Setelan (ubah di sini, tidak perlu edit script) — `/etc/lightdm/anime-glass-anim.conf`:
@@ -560,23 +570,33 @@ enabled=1        # 0 = matikan animasi (kartu login langsung tampil)
 duration=700     # durasi kartu masuk+flip (ms) — 500 = cepat, 900 = dramatis
 timeout=120      # detik; kartu muncul sendiri bila tak ada tombol ditekan
 auto=0           # >0 = kartu muncul sendiri setelah N detik (demo/pratinjau)
-hint_size=34     # ukuran font splash (px) — 26 kecil, 42 ekstra besar
-# hint=Tekan tombol apa saja untuk masuk
-# hint_sub=klik di mana saja · kartu login akan muncul
-hero=1           # 1 = tampilkan JAM BESAR di tengah sebelum form muncul
+hint_size=34     # ukuran font splash — dipakai HANYA kalau hint diisi
+# hint=          # teks splash: KOSONG = tanpa teks (hanya tiga titik halus)
+# hint_sub=
+hero=1           # 1 = tampilkan JAM BESAR + tanggal di tengah sebelum form muncul
 hero_size=94     # ukuran font jam besar (px) — 72 kecil, 120 ekstra besar
 hero_caption=SELAMAT DATANG   # tulisan kecil di atas jam (kosongkan bila tak mau)
+clock_size=40    # ukuran jam setelah form muncul (di atas kartu, px)
+clock_gap=54     # jarak jam ke tepi atas kartu login (px)
+stay=1           # 1 = jam tetap menampil di atas form setelah animasi
 ```
 
 Mematikan animasi: `sudo bash scripts/apply-lightdm-greeter.sh --no-anim`.
 Log-nya ada di `/var/log/anime-glass-anim.log`.
 
 **Menyetel animasi tanpa login berulang** — render beberapa frame ke PNG lalu
-periksa (0 = splash, 1 = kartu mendarat):
+periksa (0 = wallpaper + jam besar, 1 = kartu mendarat + jam di atas form):
 ```bash
-python3 scripts/greeter-anim.py --wallpaper config/wallpapers/login/anime-login-bg.jpg \
-  --card /tmp/card.png --card-x 645 --card-y 375 \
-  --frame-at 0,0.1,0.2,0.35,0.5,0.7,1 --frame-out /tmp/frames
+T=/tmp/frames; mkdir -p $T
+python3 scripts/login-assets.py --src config/wallpapers/login/blue-girl.jpg \
+    --outdir $T --bg-blur 0 --card-blur 10 --size 1920x1080
+python3 scripts/preview-login.py --mock-shot $T/shot.png \
+    --bg $T/login-bg.jpg --assets $T          # potret greeter (mock)
+ANIME_GLASS_WALLPAPER=$T/login-bg.jpg \
+ANIME_GLASS_OVERLAY=$PWD/scripts/greeter-anim.py \
+ANIME_GLASS_TEXTURES=$PWD/scripts/greeter-textures.py \
+python3 scripts/greeter-anim-launch.py --shot $T/shot.png \
+    "--pass=--frame-at=0,0.3,0.6,1" "--pass=--frame-out=$T/out"
 ```
 
 > Kalau layar login bermasalah setelah deploy: `Ctrl+Alt+F2` → login TTY →
@@ -587,15 +607,20 @@ python3 scripts/greeter-anim.py --wallpaper config/wallpapers/login/anime-login-
 
 ### 👀 Lihat hasilnya tanpa logout / reboot
 ```bash
-bash scripts/preview-login.sh        # tampil 20 detik di layar (ESC = tutup)
-bash scripts/preview-login.sh 40     # tampil 40 detik
+bash scripts/preview-login.sh         # animasi di layar, 30 detik (tekan tombol!)
+bash scripts/preview-login.sh 40      # 40 detik
+bash scripts/preview-login.sh --card  # potret statis kartu login (ESC = tutup)
 ```
-Preview ini membangun ulang layar login dari **UI XML asli greeter + CSS tema +
-avatar + panel + wallpaper**, jadi yang tampil = tampilan login sebenarnya
-(greeter asli tidak bisa dipratinjau saat sesi desktop hidup karena daemon
-`lightdm` memegang seat). Hasilnya otomatis tersimpan sebagai screenshot di
-`~/Pictures/anime-login-preview.png` — bisa dibuka kapan saja dengan
-`xdg-open ~/Pictures/anime-login-preview.png`.
+Mode bawaan (`preview-login.sh`) menjalankan **transisi asli** di layar: kamu
+lihat wallpaper tajam + jam besar dulu, tekan tombol apa saja, lalu kartu login
+masuk dari bawah dan **jam menetap di atas form** — persis pengalaman saat boot
+(mode `--card` merender layar login dari **UI XML asli greeter + CSS tema +
+avatar + panel + wallpaper**, lalu menyimpan screenshot-nya ke
+`~/Pictures/anime-login-preview.png`).
+
+Greeter asli sendiri tidak bisa dipratinjau saat sesi desktop hidup karena daemon
+`lightdm` memegang seat — karena itu pratinjau memakai komponen & pipeline yang
+sama supaya yang kamu lihat = yang nanti muncul.
 
 > Ringan: greeter GTK polos tanpa efek berat — hanya CSS & transparansi, RAM
 > greeter ±20–30 MB. Uji tanpa reboot: `sudo systemctl restart lightdm`
@@ -659,9 +684,9 @@ systemctl status lightdm
 │   ├── login-assets.py        # generator aset login (blur+vignette, tekstur kaca)
 │   ├── render-login-card.py   # render kartu login (UI greeter asli) jadi PNG
 │   ├── preview-login.py       # pratinjau layar login tanpa logout
-│   ├── preview-login.sh       # pemanggil pratinjau (--anim = coba animasi)
-│   ├── greeter-textures.py    # potong kartu/panel/jam dari potret layar login
-│   ├── greeter-anim.py        # overlay animasi (jam besar -> panel, kartu muncul)
+│   ├── preview-login.sh       # pratinjau (bawaan = animasi, --card = statis)
+│   ├── greeter-textures.py    # potong kartu + strip panel dari potret layar login
+│   ├── greeter-anim.py        # overlay animasi (jam besar → atas form, kartu naik)
 │   ├── greeter-anim-launch.py # penyiap overlay di sesi greeter (--shot = pratinjau)
 │   ├── window-shortcuts.sh    # Super+←/→/↑/↓ (geser + nembus workspace)
 │   └── greeter-anim-launch.sh # dipanggil LightDM (greeter-setup-script)
@@ -712,11 +737,16 @@ systemctl status lightdm
 
 ## 📌 Catatan release
 
-- **Login screen v4.1** — jam panel diperbesar (23px tebal, panel lebih lega),
-  splash layar login diperbesar (font 34px + tiga titik indikator), animasi
-  kartu masuk diperdalam (flip + sheen + glow + zoom Ken-Burns yang kembali
-  normal di akhir), dan wallpaper login diganti ke **anime blue-girl**.
-  Setelan baru: `duration`, `auto`, `hint_size`, `hint_sub`.
+- **Login screen v5** — latar login jadi **TAJAM** (tanpa blur; kartu tetap kaca
+  buram), panel **tanpa jam**, dan alur baru: idle = wallpaper + **jam besar &
+tanggal di tengah** (tanpa teks "tekan enter", hanya tiga titik halus) → tekan
+  tombol → tanggal hilang, kartu naik, jam **terbang & menetap di atas form**
+  (window kecil, klik-tembus, ikut menutup saat kamu berhasil login). Jam memakai
+  font **Poppins** (fallback Inter). Wallpaper login: **blue-girl.jpg**.
+  Setelan baru: `clock_size`, `clock_gap`, `stay`, `linger-ttl` (khusus pratinjau).
+- **Login screen v4.1** — splash layar login diperbesar (font 34px + tiga titik
+  indikator), animasi kartu masuk diperdalam (flip + sheen + glow + zoom
+  Ken-Burns yang kembali normal di akhir).
 - **Shortcut `Super+↑/↓`** kini "nembus" ke workspace atas/bawah memakai grid
   `_NET_DESKTOP_LAYOUT` (2×2 di mesin ini) dan `_NET_WORKAREA`; binding xfwm4
   yang dobel otomatis dibersihkan oleh `scripts/apply-workspace-shortcuts.sh`.

@@ -2,8 +2,8 @@
 """login-assets.py — siapkan aset tampilan login dari satu file wallpaper.
 
 Menghasilkan 3 berkas di --outdir:
-  login-bg.jpg      wallpaper layar login: di-blur lembut + sedikit digelapkan +
-                    vignette (tepi lebih gelap) supaya kartu login menonjol
+  login-bg.jpg      wallpaper layar login: di-blur (opsional) + sedikit digelapkan
+                    + vignette (tepi lebih gelap) supaya kartu login menonjol
   glass-panel.jpg   potongan TEPAT di area kartu (560x350) -> tekstur kaca kartu
   glass-bar.jpg     potongan band paling atas (1920x48) -> tekstur kaca panel
 
@@ -13,6 +13,9 @@ terlihat seperti kaca yang "menampakkan" detail, sementara latar lembut.
   python3 login-assets.py --src bg.jpg --outdir /tmp/out [--bg-blur 18] \
                           [--card-blur 8] [--dim 0.90] [--vignette 0.62] \
                           [--size 1920x1080]
+
+--bg-blur 0   = latar TAJAM (tanpa blur). Kartu tetap bisa kaca buram lewat
+                --card-blur tersendiri (kartu & latar memang terpisah).
 
 Urutan prioritas mesin gambar: Pillow -> ImageMagick (convert) -> salin apa adanya.
 """
@@ -32,7 +35,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('--src', required=True)
     p.add_argument('--outdir', required=True)
-    p.add_argument('--bg-blur', type=float, default=18.0)
+    p.add_argument('--bg-blur', type=float, default=18.0,
+                   help='0 = latar tajam (tanpa blur)')
     p.add_argument('--card-blur', type=float, default=8.0)
     p.add_argument('--dim', type=float, default=0.90, help='pengali kecerahan background')
     p.add_argument('--vignette', type=float, default=0.62,
@@ -74,7 +78,8 @@ def build_with_pillow(src, outdir, bg_blur, card_blur, dim, vig_floor):
     sharp = cover(Image.open(src).convert('RGB'), FS_W, FS_H)
 
     # 1) background layar: blur + digelapkan + vignette
-    bg = sharp.filter(ImageFilter.GaussianBlur(bg_blur))
+    #    (--bg-blur 0 = latar TAJAM apa adanya, hanya vignette tipis)
+    bg = sharp.filter(ImageFilter.GaussianBlur(bg_blur)) if bg_blur > 0 else sharp
     if dim != 1.0:
         bg = bg.point(lambda v: int(v * dim))
     bg = Image.composite(bg, Image.new('RGB', bg.size, (0, 0, 0)),

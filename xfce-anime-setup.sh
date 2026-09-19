@@ -441,10 +441,10 @@ if [ -d "$SRC_DIR/config/lightdm/themes/anime-glass-greeter" ]; then
     msg "Greeter theme -> $GREETER_THEME"
 fi
 # 2) Salin wallpaper login ke user Pictures (juga jadi fallback deploy)
-if [ -f "$SRC_DIR/config/wallpapers/login/anime-login-bg.jpg" ]; then
-    install_file "$SRC_DIR/config/wallpapers/login/anime-login-bg.jpg" \
-                 "$WALL_DIR/anime-login-bg.jpg"
-    msg "Login wallpaper -> $WALL_DIR/anime-login-bg.jpg"
+if [ -f "$SRC_DIR/config/wallpapers/login/blue-girl.jpg" ]; then
+    install_file "$SRC_DIR/config/wallpapers/login/blue-girl.jpg" \
+                 "$WALL_DIR/blue-girl.jpg"
+    msg "Login wallpaper (blue-girl) -> $WALL_DIR/blue-girl.jpg"
 fi
 # 3) Deploy penuh login screen (paket + tema + bg + autologin) butuh sudo:
 msg "Login screen: jalankan 'sudo bash $SRC_DIR/scripts/apply-lightdm-greeter.sh'"

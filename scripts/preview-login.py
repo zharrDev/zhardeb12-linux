@@ -3,7 +3,8 @@
 
 Menampilkan window fullscreen yang dibuat dari **UI XML asli** lightdm-gtk-greeter
 (diekstrak langsung dari binary) + **CSS tema yang sama** dengan produksi + avatar
-+ panel + wallpaper. Jadi yang kamu lihat di layar = tampilan login sebenarnya.
++ panel + wallpaper (TAJAM, tanpa blur). Jadi yang kamu lihat di layar = tampilan
+login sebenarnya.
 
   python3 scripts/preview-login.py [detik]     # default 20 detik, ESC = tutup
 
@@ -15,7 +16,6 @@ import os
 import subprocess
 import sys
 import tempfile
-from datetime import datetime
 
 import gi
 
@@ -31,7 +31,7 @@ SHOT = os.path.expanduser('~/Pictures/anime-login-preview.png')
 # Selalu mulai dari wallpaper login di REPO (bukan dari aset hasil deploy yang
 # bisa ketinggalan versi lama): isinya sekarang gambar blue-girl.
 BG_DIR = os.path.join(SRC_DIR, 'config/wallpapers/login')
-BG_MAIN = os.path.join(BG_DIR, 'anime-login-bg.jpg')
+BG_MAIN = os.path.join(BG_DIR, 'blue-girl.jpg')     # gambar blue-girl (1920x1080)
 BG_CANDIDATES = [BG_MAIN]
 if os.path.isdir(BG_DIR):
     BG_CANDIDATES += sorted(os.path.join(BG_DIR, n) for n in os.listdir(BG_DIR)
@@ -85,10 +85,12 @@ def prepare_assets(tmp):
     geo = display.get_monitor(0).get_geometry()
 
     helper = os.path.join(SRC_DIR, 'scripts/login-assets.py')
+    # parameter = SAMA dengan scripts/apply-lightdm-greeter.sh (latar TAJAM,
+    # kartu tetap kaca buram) supaya pratinjau = yang muncul saat login asli
     subprocess.run([sys.executable, helper, '--src', bg_src, '--outdir', tmp,
                     '--size', '%dx%d' % (geo.width, geo.height),
-                    '--bg-blur', '16', '--card-blur', '8', '--dim', '0.90',
-                    '--vignette', '0.60'], check=True)
+                    '--bg-blur', '0', '--card-blur', '10', '--dim', '0.94',
+                    '--vignette', '0.62'], check=True)
 
     # CSS produksi, tapi url()-nya diarahkan ke aset lokal
     css = open(CSS_SRC, encoding='utf-8').read()
@@ -141,16 +143,14 @@ class ScreenParts:
         panel.set_margin_start(6)
         panel.set_margin_end(6)
 
+        # Panel TANPA jam: persis seperti config/lightdm/lightdm-gtk-greeter.conf
+        # (indicators=~host;~spacer;~session;~power). Jam digambar overlay animasi
+        # besar di tengah layar, lalu menetap di atas kartu login.
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         menubar = Gtk.MenuBar()
         menubar.set_name('menubar')
-        host = Gtk.MenuItem(label='suo@suo')
-        self.clock = Gtk.MenuItem(label='')
-        self.clock.set_name('clock_menuitem')
-        session = Gtk.MenuItem(label='Xfce Session')
-        menubar.append(host)
-        menubar.append(self.clock)
-        menubar.append(session)
+        menubar.append(Gtk.MenuItem(label='suo@suo'))
+        menubar.append(Gtk.MenuItem(label='Xfce Session'))
         box.pack_start(menubar, True, True, 0)
 
         for icon, wid in (('system-shutdown', 'shutdown_button'),
@@ -160,18 +160,7 @@ class ScreenParts:
             btn.add(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU))
             box.pack_start(btn, False, False, 0)
         panel.add(box)
-        self.update_clock()
         return panel
-
-    def update_clock(self):
-        now = datetime.now()
-        menit = {1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April', 5: 'Mei', 6: 'Juni',
-                 7: 'Juli', 8: 'Agustus', 9: 'September', 10: 'Oktober', 11: 'November',
-                 12: 'Desember'}
-        hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][now.weekday()]
-        self.clock.set_label('%s, %02d %s %d  •  %02d:%02d' % (
-            hari, now.day, menit[now.month], now.year, now.hour, now.minute))
-        return True
 
     def build_card(self):
         raw = load_greeter_xml()
