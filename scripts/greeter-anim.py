@@ -1,29 +1,33 @@
 #!/usr/bin/env python3
 """greeter-anim.py — overlay "wallpaper dulu, form login muncul belakangan".
 
-Alur (sama seperti sebelumnya, tapi lebih dalam & tetap ringan):
+Alur:
 
-  1. Awal  : wallpaper saja + SPLASH kaca besar ("Tekan tombol untuk masuk")
-             — splash di-render SEKALI jadi pixbuf, jadi tiap frame cuma satu
-             blit kecil (hemat CPU; area repaint dibatasi seukuran splash).
-  2. Tombol: kartu login masuk dari bawah dengan animasi berlapis:
-             slide (ease-out-expo) + FLIP 3D-tiruan (skala Y 0.45→1 + skala X
-             melebar di tengah = efek kartu mendekat), bayangan yang menyusul,
-             glow aksen, kilau (sheen) menyapu permukaan kartu, dan wallpaper
-             yang pelan-pelan zoom + meredup (kedalaman/parallax).
-  3. Selesai: overlay menutup diri tepat di posisi kartu asli (greeter), fokus
-             dikembalikan ke window greeter → langsung bisa mengetik password.
+  1. Awal  : wallpaper saja + JAM BESAR di TENGAH layar (jam + detik + hari/
+             tanggal, plus sapuan aksen) + splash kaca kecil di bawah
+             ("Tekan tombol apa saja untuk masuk").
+             Jam panel asli disembunyikan: overlay menggambar strip panel ASLI
+             (hasil potret greeter) yang area jamnya sudah ditambal dari
+             wallpaper — jadi tidak ada dua jam di layar.
+  2. Tombol: kartu login masuk dari bawah (slide + FLIP + glow + sheen,
+             wallpaper zoom Ken-Burns), dan JAM BESAR terbang ke ATAS menuju
+             posisi jam panel sambil mengecil & memudar — jadi setelah form
+             muncul, jam ada DI ATAS form (di panel).
+             Di akhir animasi jam asli "muncul kembali" (crossfade) tepat di
+             posisi yang sama → serah-terima mulus, tanpa lompatan.
+  3. Selesai: overlay menutup diri; fokus dikembalikan ke window greeter →
+             langsung bisa mengetik password.
 
 Semua kegagalan bersifat aman: gambar gagal dibaca / GTK error → script keluar
 tanpa menampilkan apa pun, layar login tetap normal.
 
   python3 greeter-anim.py --wallpaper bg.jpg --card card.png \
-      --card-x 645 --card-y 374 [--top-gap 62] [--timeout 120] \
-      [--duration 700] [--hint "Tekan tombol apa saja untuk masuk"] \
-      [--hint-size 30] [--auto 0] [--focus-window 0x400003] [--log /tmp/anim.log]
+      --card-x 645 --card-y 374 [--panel-strip panel.png] \
+      [--clock-x .. --clock-y .. --clock-w .. --clock-h ..] [--clock-crop clock.png] \
+      [--top-gap 62] [--timeout 120] [--duration 700] [--hero 1] \
+      [--hint "..."] [--hint-size 30] [--auto 0] [--focus-window 0x400003]
 
-  --auto N : kartu muncul sendiri setelah N detik (0 = nonaktif). Berguna untuk
-             pratinjau/demo tanpa perlu menekan tombol.
+  --auto N : kartu muncul sendiri setelah N detik (0 = nonaktif). Untuk demo.
 """
 import argparse
 import math
@@ -47,10 +51,19 @@ ENTER_PART = 0.72       # 72% waktu = masuk, 28% terakhir = "mendarat"
 FLIP_PART = 0.50        # flip selesai di 50% waktu (lebih ringkas dari slide)
 ZOOM_PEAK = 1.055       # zoom wallpaper di tengah animasi (naik lalu kembali)
 DIM_PEAK = 0.24         # gelap maksimum wallpaper di tengah animasi
+HERO_FLY_PART = 0.80    # jam besar selesai terbang di 80% waktu
+HERO_HOLD = 0.52        # jam besar mulai memudar setelah 52% waktu
+HERO_END_SCALE_MIN = 0.20
+CLOCK_IN_PART = 0.68    # jam asli mulai "muncul kembali" di 68% waktu
 ACCENT = (95 / 255.0, 162 / 255.0, 206 / 255.0)      # #5fa2ce
 ACCENT2 = (122 / 255.0, 111 / 255.0, 212 / 255.0)    # #7a6fd4
+LAVENDER = (0.80, 0.84, 1.0)
 HINT_TEXT = 'Tekan tombol apa saja untuk masuk'
 HINT_SUB = 'klik di mana saja · kartu login akan muncul'
+
+BULAN = ('Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+         'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember')
+HARI = ('Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu')
 
 
 def log(path, msg):
@@ -66,6 +79,11 @@ def log(path, msg):
 # --------------------------------------------------------------------- easing
 def ease_out_cubic(t):
     return 1.0 - (1.0 - t) ** 3
+
+
+def ease_out_expo(t):
+    t = max(0.0, min(1.0, t))
+    return 1.0 if t >= 1.0 else 1.0 - 2 ** (-10 * t)
 
 
 def ease_out_back(t, s=1.0):
@@ -94,22 +112,27 @@ class Overlay(Gtk.Window):
         self.progress = 0.0
         self.animating = False
         self.focus_tries = 0
+        self.hero_key = ''
 
         self.wall = self.load_pixbuf(a.wallpaper)
         self.card = self.load_pixbuf(a.card)
         if self.wall is None or self.card is None:
             raise SystemExit(0)                     # aman: biarkan layar login normal
+        self.panel = self.load_pixbuf(a.panel_strip) if a.panel_strip else None
+        self.clock_crop = self.load_pixbuf(a.clock_crop) if a.clock_crop else None
 
         geo = Gdk.Display.get_default().get_monitor(0).get_geometry()
         self.sw, self.sh = geo.width, geo.height
-        self.top_gap = max(0, a.top_gap)
-        self.h = self.sh - self.top_gap
+        # mode "panel strip": overlay menutup SELURUH layar (panel digambar
+        # sendiri dari potret asli). Tanpa itu: mulai dari bawah panel.
+        self.oy = 0 if self.panel is not None else max(0, a.top_gap)
+        self.h = self.sh - self.oy
 
         # wallpaper di-scale SEKALI ke ukuran overlay (bukan tiap frame)
         self.wall_scaled = self.wall.scale_simple(
             self.sw, self.h, GdkPixbuf.InterpType.BILINEAR) or self.wall
 
-        self.card_x, self.card_y = a.card_x, a.card_y - self.top_gap
+        self.card_x, self.card_y = a.card_x, a.card_y - self.oy
         self.card_w, self.card_h = self.card.get_width(), self.card.get_height()
 
         self.set_decorated(False)
@@ -119,12 +142,17 @@ class Overlay(Gtk.Window):
         self.set_can_focus(True)
         self.set_app_paintable(True)
         self.resize(self.sw, self.h)
-        self.move(0, self.top_gap)
+        self.move(0, self.oy)
 
         self.area = Gtk.DrawingArea()
         self.area.set_size_request(self.sw, self.h)
         self.area.connect('draw', self.on_draw)
         self.add(self.area)
+
+        # --- JAM BESAR: dirender sekali jadi pixbuf (di-render ulang tiap menit)
+        self.hero_pix = None
+        self.hero_rect = (0, 0, 0, 0)
+        self.build_hero(reposition=True)
 
         # SPLASH: dirender sekali ke pixbuf (teks besar + plat kaca)
         self.hint_pix, self.hint_rect = self.build_hint()   # (x, y, w, h)
@@ -135,6 +163,7 @@ class Overlay(Gtk.Window):
         self.connect('button-press-event', self.on_input)
         self.connect('destroy', Gtk.main_quit)
         GLib.timeout_add(TICK_MS, self.on_tick)
+        GLib.timeout_add_seconds(4, self.refresh_hero)
         if a.timeout > 0:                            # jaring aman: jangan sampai terkunci
             GLib.timeout_add_seconds(a.timeout, self.reveal)
         if a.auto > 0:                               # demo/pratinjau tanpa menekan tombol
@@ -143,11 +172,142 @@ class Overlay(Gtk.Window):
     # ---------------------------------------------------------------- pixbuf
     @staticmethod
     def load_pixbuf(path):
+        if not path:
+            return None
         try:
             return GdkPixbuf.Pixbuf.new_from_file(path)
         except Exception as e:
             log(getattr(sys, '_anim_log', None), 'gagal memuat %s: %s' % (path, e))
             return None
+
+    # ----------------------------------------------------------- JAM BESAR
+    def hero_target(self):
+        """Titik & skala akhir jam besar: pusat jam panel (kalau terdeteksi)."""
+        a = self.a
+        if a.clock_w > 0 and a.clock_h > 0:
+            return (a.clock_x + a.clock_w / 2.0, a.clock_y + a.clock_h / 2.0 - self.oy,
+                    float(a.clock_h))
+        return (self.sw / 2.0, (self.oy + 30) / 2.0, 24.0)   # cadangan: tengah panel
+
+    def build_hero(self, reposition=False):
+        """Render jam besar (caption + jam + detik + garis aksen + tanggal) → pixbuf."""
+        a = self.a
+        if not a.hero:
+            self.hero_pix = None
+            return False
+        now = time.localtime()
+        hhmm = time.strftime('%H:%M', now)
+        sec = time.strftime('%S', now)
+        tanggal = '%s, %d %s %d' % (HARI[now.tm_wday], now.tm_mday,
+                                    BULAN[now.tm_mon - 1], now.tm_year)
+        key = '%s%s%s' % (hhmm, sec, tanggal)
+        if key == self.hero_key and self.hero_pix is not None:
+            return False
+        self.hero_key = key
+
+        fs = int(a.hero_size)
+        cap_fs = max(10, int(fs * 0.135))
+        date_fs = max(13, int(fs * 0.235))
+        sec_fs = max(13, int(fs * 0.26))
+
+        scratch = cairo.ImageSurface(cairo.FORMAT_ARGB32, 8, 8)
+        scr = cairo.Context(scratch)
+
+        def lay(text, font):
+            l = PangoCairo.create_layout(scr)
+            l.set_text(text, -1)
+            l.set_font_description(Pango.FontDescription(font))
+            return l, l.get_pixel_size()
+
+        cap_l, (cap_w, cap_h) = lay(a.hero_caption, 'Inter %dpx' % cap_fs)
+        time_l, (tw, th) = lay(hhmm, 'Inter Bold %dpx' % fs)
+        sec_l, (sw2, sh2) = lay(sec, 'Inter Bold %dpx' % sec_fs)
+        date_l, (dw, dh) = lay(tanggal, 'Inter %dpx' % date_fs)
+
+        rule_w = int(max(110, min(232, tw * 0.52)))
+        pad = 30
+        w = int(max(tw + sw2 + 26, dw, cap_w) + pad * 2)
+        gap1 = int(fs * 0.10)
+        gap2 = int(fs * 0.16)
+        h = pad + cap_h + gap1 + th + gap2 + 3 + gap2 + dh + pad
+
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(surf)
+
+        # --- glow lembut di belakang jam (radial, murah karena sekali render)
+        gx, gy = w / 2.0, pad + cap_h + gap1 + th * 0.52
+        gr = cairo.RadialGradient(gx, gy, 4, gx, gy, max(tw, th) * 0.78)
+        gr.add_color_stop_rgba(0.0, ACCENT[0], ACCENT[1], ACCENT[2], 0.16)
+        gr.add_color_stop_rgba(0.55, ACCENT2[0], ACCENT2[1], ACCENT2[2], 0.07)
+        gr.add_color_stop_rgba(1.0, 0, 0, 0, 0.0)
+        cr.set_source(gr)
+        cr.rectangle(0, 0, w, h)
+        cr.fill()
+
+        # --- caption kecil bergaya spasi huruf (di atas)
+        cr.move_to((w - cap_w) / 2.0, pad)
+        cr.set_source_rgba(*ACCENT, 0.78)
+        PangoCairo.show_layout(cr, cap_l)
+
+        ty = pad + cap_h + gap1
+        # --- jam: bayangan gelap tipis + isi putih, plus detik aksen
+        tx = (w - (tw + sw2 + 26)) / 2.0
+        for ox, oy, al in ((0, 2, 0.22), (0, 0, 0.55)):
+            cr.save()
+            cr.move_to(tx + ox, ty + oy)
+            cr.set_source_rgba(0.02, 0.03, 0.07, al)
+            PangoCairo.show_layout(cr, time_l)
+            cr.restore()
+        cr.move_to(tx, ty)
+        cr.set_source_rgba(1, 1, 1, 0.98)
+        PangoCairo.show_layout(cr, time_l)
+        cr.move_to(tx + tw + 12, ty + th - sh2 - th * 0.12)
+        cr.set_source_rgba(*LAVENDER, 0.92)
+        PangoCairo.show_layout(cr, sec_l)
+
+        # --- garis aksen bergradasi (biru → ungu)
+        ry = ty + th + gap2
+        rx = (w - rule_w) / 2.0
+        lg = cairo.LinearGradient(rx, ry, rx + rule_w, ry)
+        lg.add_color_stop_rgba(0.0, ACCENT[0], ACCENT[1], ACCENT[2], 0.0)
+        lg.add_color_stop_rgba(0.5, LAVENDER[0], LAVENDER[1], LAVENDER[2], 0.85)
+        lg.add_color_stop_rgba(1.0, ACCENT2[0], ACCENT2[1], ACCENT2[2], 0.0)
+        cr.set_line_width(2.0)
+        cr.set_source(lg)
+        cr.move_to(rx, ry + 1)
+        cr.line_to(rx + rule_w, ry + 1)
+        cr.stroke()
+
+        # --- tanggal
+        cr.move_to((w - dw) / 2.0, ry + 3 + gap2)
+        cr.set_source_rgba(0.88, 0.90, 1.0, 0.80)
+        PangoCairo.show_layout(cr, date_l)
+
+        pix = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
+        if pix is None:
+            self.hero_pix = None
+            return False
+        self.hero_pix = pix
+        if reposition or self.hero_rect[2] == 0:
+            self.hero_rect = (0, 0, w, h)
+        # posisi idle & tujuan penerbangan (koordinat window overlay)
+        self.hero_cx = self.sw / 2.0
+        self.hero_cy = self.h * 0.46
+        tx_c, ty_c, ch = self.hero_target()
+        self.hero_dx, self.hero_dy = tx_c, ty_c
+        self.hero_s_end = max(HERO_END_SCALE_MIN,
+                              min(0.55, (ch * 1.25) / max(1.0, float(th))))
+        # area idle jam (untuk repaint hemat)
+        self.hero_area = (int(self.hero_cx - w / 2.0), int(self.hero_cy - h / 2.0),
+                          int(self.hero_cx + w / 2.0), int(self.hero_cy + h / 2.0))
+        if self.hero_area[0] < 0:
+            self.hero_area = (0,) + self.hero_area[1:]
+        return True
+
+    def refresh_hero(self):
+        if self.build_hero():
+            self.area.queue_draw_area(*self.hero_area)     # ganti menit → repaint
+        return True
 
     # ------------------------------------------------------- splash (sekali)
     PAD_X = 56          # padding kiri/kanan plat kaca
@@ -252,6 +412,12 @@ class Overlay(Gtk.Window):
             cr.set_source_rgba(0.03, 0.04, 0.09, dim)
             cr.paint()
 
+        # -------- panel ASLI (potret greeter) — digambar apa adanya supaya panel
+        # tidak "muncul mendadak"; area jamnya sudah ditambal (tanpa jam).
+        if self.panel is not None:
+            Gdk.cairo_set_source_pixbuf(cr, self.panel, 0, 0)
+            cr.paint()
+
         # -------- splash: menghilang (naik + membesar + memudar) saat reveal
         if not self.animating and p <= 0.0:
             self.draw_hint(cr, 1.0)
@@ -264,9 +430,51 @@ class Overlay(Gtk.Window):
             if fade > 0:
                 self.draw_hint(cr, fade)
 
+        # -------- JAM BESAR (di tengah saat idle, terbang ke panel saat reveal)
+        if self.hero_pix is not None and p < 1.0:
+            self.draw_hero(cr, p)
+
         if p > 0.0:
             self.draw_card(cr, p)
+            # -------- jam asli muncul kembali (crossfade) di akhir animasi
+            if self.clock_crop is not None and p > CLOCK_IN_PART:
+                al = ease_in_out_sine((p - CLOCK_IN_PART) / (1.0 - CLOCK_IN_PART))
+                cr.save()
+                cr.rectangle(self.a.clock_x - 6, self.a.clock_y - self.oy - 6,
+                             self.clock_crop.get_width() + 12,
+                             self.clock_crop.get_height() + 12)
+                cr.clip()
+                Gdk.cairo_set_source_pixbuf(cr, self.clock_crop,
+                                            self.a.clock_x - 6, self.a.clock_y - self.oy - 6)
+                cr.paint_with_alpha(al)
+                cr.restore()
         return False
+
+    def draw_hero(self, cr, p):
+        """Jam besar: diam di tengah → terbang ke jam panel sambil mengecil & memudar."""
+        w, h = self.hero_pix.get_width(), self.hero_pix.get_height()
+        if p <= 0.0:
+            cx, cy, s, alpha = self.hero_cx, self.hero_cy, 1.0, 1.0
+        else:
+            # naik dengan tenang (mulai pelan → tengah cepat → mendarat lembut),
+            # bukan melesat di frame pertama (itu terasa seperti "teleport")
+            t = ease_in_out_sine(min(1.0, p / HERO_FLY_PART))
+            cx = self.hero_cx + (self.hero_dx - self.hero_cx) * t
+            cy = self.hero_cy + (self.hero_dy - self.hero_cy) * t
+            s = 1.0 + (self.hero_s_end - 1.0) * t
+            if p < HERO_HOLD:
+                alpha = 1.0
+            else:
+                alpha = 1.0 - ease_out_cubic((p - HERO_HOLD) / (1.0 - HERO_HOLD))
+        if alpha <= 0.004:
+            return
+        cr.save()
+        cr.translate(cx, cy)
+        cr.scale(s, s)
+        cr.translate(-w / 2.0, -h / 2.0)
+        Gdk.cairo_set_source_pixbuf(cr, self.hero_pix, 0, 0)
+        cr.paint_with_alpha(alpha)
+        cr.restore()
 
     def draw_hint(self, cr, fade):
         """Splash (plat yang sudah jadi pixbuf) + aksen hidup: denyut & titik."""
@@ -402,7 +610,8 @@ class Overlay(Gtk.Window):
     def reveal(self):
         if not self.animating and self.progress <= 0.0:
             self.animating = True
-            log(self.a.log, 'reveal: kartu login muncul (durasi %sms)' % self.a.duration)
+            log(self.a.log, 'reveal: jam besar terbang + kartu login muncul (durasi %sms)'
+                % self.a.duration)
         return False
 
     def finish(self):
@@ -446,7 +655,16 @@ def main():
     ap.add_argument('--card', required=True)
     ap.add_argument('--card-x', type=int, required=True)
     ap.add_argument('--card-y', type=int, required=True)
+    ap.add_argument('--panel-strip', default='', help='strip panel asli (tanpa jam)')
+    ap.add_argument('--clock-crop', default='', help='potongan asli area jam')
+    ap.add_argument('--clock-x', type=int, default=0)
+    ap.add_argument('--clock-y', type=int, default=0)
+    ap.add_argument('--clock-w', type=int, default=0)
+    ap.add_argument('--clock-h', type=int, default=0)
     ap.add_argument('--top-gap', type=int, default=0)
+    ap.add_argument('--hero', type=int, default=1, help='1 = tampilkan jam besar di tengah')
+    ap.add_argument('--hero-size', type=int, default=94, help='ukuran jam besar (px)')
+    ap.add_argument('--hero-caption', default='SELAMAT DATANG')
     ap.add_argument('--hint', default=HINT_TEXT)
     ap.add_argument('--hint-sub', default=HINT_SUB)
     ap.add_argument('--hint-size', type=int, default=34, help='ukuran font splash (px)')
@@ -472,7 +690,6 @@ def main():
     if a.frame_at and a.frame_out:
         os.makedirs(a.frame_out, exist_ok=True)
         for i, val in enumerate(a.frame_at.split(',')):
-            os.path.join(a.frame_out, 'frame-%d.png' % i)
             print(ov.render_frame(float(val), os.path.join(a.frame_out, 'frame-%d.png' % i)))
         return 0
 
@@ -480,7 +697,7 @@ def main():
     ov.steal_focus()
     for ms in (60, 200, 500, 1000):                 # greeter sering merebut fokus lagi
         GLib.timeout_add(ms, lambda: (ov.animating or ov.steal_focus()) and False)
-    log(a.log, 'overlay tampil (wallpaper + splash) — menunggu tombol')
+    log(a.log, 'overlay tampil (wallpaper + jam besar) — menunggu tombol')
     Gtk.main()
     return 0
 

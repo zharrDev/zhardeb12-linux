@@ -156,9 +156,10 @@ fi
 # kartu itu dari bawah. Kalau overlay gagal, layar login tampil seperti biasa.
 if [ "$ANIM" -eq 1 ]; then
     mkdir -p "$ANIM_DIR"
-    install -m 755 "$SRC_DIR/scripts/greeter-anim.py"        "$ANIM_DIR/greeter-anim.py"
-    install -m 755 "$SRC_DIR/scripts/greeter-anim-launch.py" "$ANIM_DIR/greeter-anim-launch.py"
-    install -m 755 "$SRC_DIR/scripts/greeter-anim-launch.sh" "$ANIM_DIR/greeter-anim-launch.sh"
+    install -m 755 "$SRC_DIR/scripts/greeter-anim.py"         "$ANIM_DIR/greeter-anim.py"
+    install -m 755 "$SRC_DIR/scripts/greeter-anim-launch.py"  "$ANIM_DIR/greeter-anim-launch.py"
+    install -m 755 "$SRC_DIR/scripts/greeter-textures.py"     "$ANIM_DIR/greeter-textures.py"
+    install -m 755 "$SRC_DIR/scripts/greeter-anim-launch.sh"  "$ANIM_DIR/greeter-anim-launch.sh"
     # konfigurasi animasi (tidak menimpa kalau sudah pernah diubah user)
     ANIM_CONF="/etc/lightdm/anime-glass-anim.conf"
     if [ ! -f "$ANIM_CONF" ]; then
@@ -172,8 +173,18 @@ auto=0           # detik; >0 = kartu muncul sendiri setelah N detik (demo)
 hint_size=34     # ukuran font SPLASH di layar login (px)
 # hint=Tekan tombol apa saja untuk masuk
 # hint_sub=klik di mana saja · kartu login akan muncul
+hero=1           # 1 = tampilkan JAM BESAR di tengah sebelum form muncul
+hero_size=94     # ukuran font jam besar (px)
+hero_caption=SELAMAT DATANG   # tulisan kecil di atas jam (kosongkan bila tak mau)
 EOF
         chmod 644 "$ANIM_CONF"
+    else
+        # conf lama: tambahkan setelan BARU saja (jangan sentuh yang sudah ada)
+        for kv in 'hero=1' 'hero_size=94' 'hero_caption=SELAMAT DATANG'; do
+            key="${kv%%=*}"
+            grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$ANIM_CONF" \
+                || printf '%s\n' "$kv" >> "$ANIM_CONF"
+        done
     fi
     ok "Animasi login -> $ANIM_DIR (wallpaper dulu, tekan tombol -> kartu muncul)"
     ok "Setelan animasi -> $ANIM_CONF (enabled, duration, timeout, hint)"

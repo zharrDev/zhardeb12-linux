@@ -154,6 +154,21 @@ Grid workspace dibaca dari `_NET_DESKTOP_LAYOUT` (di mesin ini **2×2**), jadi
 "bawah" = workspace **+2** (baris bawah pada kolom yang sama), bukan +1. Batas
 gerak memakai `_NET_WORKAREA`, jadi panel atas (44px) tidak pernah ketimpa.
 
+Dua hal yang bikin dorongan terasa "lengket" sudah dibereskan di script ini:
+
+1. **Fokus ikut pindah.** Setelah nembus ke workspace lain, xfwm4 memindahkan
+   fokus ke jendela lain yang sudah ada di sana — dorongan berikutnya jadi
+   menggeser jendela yang SALAH, dan jendela yang kamu dorong terlihat
+   "tertempel" diam. Sekarang jendela yang dipindah **difokuskan ulang** (dengan
+   verifikasi + coba ulang) dan id-nya dipegang sesaat (±1,2 detik) di state
+   file, jadi beberapa tekanan beruntun tetap menyasar jendela yang sama.
+   Setel lamanya: `HOLD_SECS=0.8 ~/.local/bin/window-shortcuts.sh down`.
+2. **Batas posisi yang bisa dicapai.** `wmctrl -e` men-set posisi *frame* dan
+   xfwm4 menaruh klien 2× extents darinya sambil membatasi frame agar tidak
+   keluar area kerja — jadi tidak semua koordinat bisa dicapai. Semua hasil
+   hitungan (termasuk saat "mentok") sekarang dijepit ke batas nyata itu, jadi
+   jendela tidak lagi nyangkut sebagian di bawah panel atau keluar layar.
+
 Uji tanpa menggeser apa pun (dry-run) dan bersihkan binding ganda xfwm4:
 ```bash
 DRY=1 WIN=$(xprop -root _NET_ACTIVE_WINDOW | awk '{print $5}') \
@@ -457,6 +472,13 @@ Yang dipasang:
   `Senin, 16 September 2026 • 14:30`, panel glass di atas
 - Konfigurasi lama otomatis dibackup (`*.bak.<tanggal>`)
 
+**Jam di layar login:** saat idle jam tampil **besar di tengah**; setelah kamu
+tekan tombol apa saja, jam itu terbang ke posisi jam panel (di atas form) dan
+jam asli menggantikannya di posisi yang sama — jadi setelah form muncul, jam ada
+**di atas form**. Jam besar pakai font Inter Bold + detik aksen lavender,
+tanggal Indonesia, dan garis gradasi biru→ungu; jam panel dibuat lavendel
+terang supaya senada.
+
 **Ganti avatar (mis. pakai wajah lain):** ganti satu file ini lalu deploy ulang.
 ```bash
 cd ~/Documents/zhardeb
@@ -478,17 +500,25 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin
 > wallpaper (1:1 sesuai resolusi layar) sehingga hasilnya menyatu dengan latar —
 > prinsip sama seperti dotfiles Hyprland (By-LeyzS) yang memakai blur + wallpaper.
 
-### ✨ Animasi: wallpaper dulu → kartu login muncul saat tombol ditekan
+### ✨ Animasi: JAM BESAR di tengah → form login menyusul
 
-Saat layar login muncul, yang tampil **cuma wallpaper + SPLASH kaca besar**:
+Saat layar login muncul, yang tampil **cuma wallpaper + JAM BESAR di tengah
+layar**: caption kecil `SELAMAT DATANG`, jam `HH:MM` besar (94px) + detik aksen,
+garis gradasi biru→ungu, dan tanggal Indonesia; di bawahnya SPLASH kaca
 `Tekan tombol apa saja untuk masuk` + subjudul kecil, tiga titik yang menyala
 bergantian, dan sapuan kilau biru di permukaan splash.
 
-Begitu ada tombol ditekan (atau diklik), kartu login masuk lewat animasi
-berlapis (±0,7 detik):
+**Jam panel asli disembunyikan** selama fase ini supaya di layar tidak ada dua
+jam: overlay menggambar **strip panel ASLI** (potret greeter, dipakai apa
+adanya) yang area jamnya sudah ditambal dari wallpaper — jadi panelnya tetap
+tampak persis aslinya, hanya jamnya yang belum muncul.
+
+Begitu ada tombol ditekan (atau diklik), dalam ±0,7 detik:
 
 | Lapisan | Efek |
 | --- | --- |
+| Jam besar | terbang ke **posisi jam panel** sambil mengecil & memudar (kurva halus: pelan → cepat → mendarat lembut) — jam berakhir **DI ATAS form login** |
+| Jam asli | muncul kembali (crossfade) tepat di posisi jam besar mendarat |
 | Kartu | **FLIP** — skala vertikal 0.35→1 dengan sedikit overshoot (terbuka dari bawah) + slide `ease-out` 170px |
 | Perspektif | kartu melebar sesaat di tengah lintasan (terasa mendekat ke kamera) |
 | Kilau (sheen) | gradasi cahaya menyapu diagonal di permukaan kartu |
@@ -496,12 +526,23 @@ berlapis (±0,7 detik):
 | Wallpaper | zoom Ken-Burns + menggelap di tengah animasi, lalu **kembali persis normal** |
 | Splash | turun + mengecil + memudar cepat (crossfade) supaya tidak tumpang-tindih |
 
-Di akhir animasi wallpaper & kartu kembali ke keadaan identik dengan yang
-digambar greeter, jadi serah-terima ke kartu login asli **tanpa lompatan**.
-Semua efek digambar dengan Cairo (tanpa blur realtime) dan splash di-render
-sekali jadi pixbuf — idle animasi hanya me-repaint **area splash** saja,
-sementara repaint penuh hanya ±0,7 detik saat kartu masuk (RAM greeter tetap
-±20–30 MB).
+Di akhir animasi **semuanya kembali identik dengan yang digambar greeter** —
+termasuk panel dan jamnya. Sudah diukur: frame terakhir berbeda **<0,1% piksel**
+dari layar login asli, jadi serah-terima ke kartu login & jam asli **tanpa
+lompatan**.
+
+Semua efek digambar dengan Cairo (tanpa blur realtime) dan jam besar + splash
+di-render **sekali** jadi pixbuf — saat idle repaint-nya cuma area kecil, dan
+repaint penuh hanya ±0,7 detik saat animasi jalan (RAM greeter tetap ±20–30 MB).
+
+Semua tekstur dipotong dari **satu potret layar login** oleh satu tool:
+`scripts/greeter-textures.py` → `card.png` (kartu + bayangannya), `panel.png`
+(strip panel tanpa jam), `clock.png` (potongan jam asli), plus kotak jam & kartu
+dalam JSON. Tool yang sama dipakai **jalur produksi** (`greeter-anim-launch.py`)
+dan **pratinjau** (`preview-login.sh --anim`) — jadi yang kamu lihat di
+pratinjau = yang nanti muncul saat login. Deteksi dijaga ketat (kartu harus
+masuk akal, latar potret harus ≥75% sama dengan wallpaper) dan kalau ada yang
+aneh animasinya langsung dibatalkan — layar login tampil normal.
 
 Aman by design: **autentikasi tetap milik `lightdm-gtk-greeter` bawaan**, lapisan
 animasi hanya melukis di atasnya. Kalau overlay gagal/tidak jalan, layar login
@@ -522,6 +563,9 @@ auto=0           # >0 = kartu muncul sendiri setelah N detik (demo/pratinjau)
 hint_size=34     # ukuran font splash (px) — 26 kecil, 42 ekstra besar
 # hint=Tekan tombol apa saja untuk masuk
 # hint_sub=klik di mana saja · kartu login akan muncul
+hero=1           # 1 = tampilkan JAM BESAR di tengah sebelum form muncul
+hero_size=94     # ukuran font jam besar (px) — 72 kecil, 120 ekstra besar
+hero_caption=SELAMAT DATANG   # tulisan kecil di atas jam (kosongkan bila tak mau)
 ```
 
 Mematikan animasi: `sudo bash scripts/apply-lightdm-greeter.sh --no-anim`.
@@ -616,8 +660,10 @@ systemctl status lightdm
 │   ├── render-login-card.py   # render kartu login (UI greeter asli) jadi PNG
 │   ├── preview-login.py       # pratinjau layar login tanpa logout
 │   ├── preview-login.sh       # pemanggil pratinjau (--anim = coba animasi)
-│   ├── greeter-anim.py        # overlay animasi "wallpaper dulu -> kartu muncul"
-│   ├── greeter-anim-launch.py # penyiap overlay di sesi greeter (deteksi kartu/panel)
+│   ├── greeter-textures.py    # potong kartu/panel/jam dari potret layar login
+│   ├── greeter-anim.py        # overlay animasi (jam besar -> panel, kartu muncul)
+│   ├── greeter-anim-launch.py # penyiap overlay di sesi greeter (--shot = pratinjau)
+│   ├── window-shortcuts.sh    # Super+←/→/↑/↓ (geser + nembus workspace)
 │   └── greeter-anim-launch.sh # dipanggil LightDM (greeter-setup-script)
 ├── config/
 │   ├── wallpapers/            # koleksi wallpaper terpusat (originals/)

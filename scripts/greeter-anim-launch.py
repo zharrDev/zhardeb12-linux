@@ -5,16 +5,19 @@ Dipanggil otomatis oleh LightDM (greeter-setup-script) sebagai root, saat X
 greeter sudah hidup tapi greeter belum/tengah digambar. Tugasnya:
 
   1. tunggu window greeter muncul,
-  2. potret layarnya (yang berisi wallpaper + kartu login yang sudah digambar
-     greeter asli — autentikasi tetap milik greeter, bukan script ini),
-  3. cari kotak kartu & panel dengan MEMBANDINGKAN potret vs wallpaper resmi,
-  4. jalankan overlay (greeter-anim.py) yang menyembunyikan kartu dulu, lalu
-     memunculkannya dari bawah saat ada tombol ditekan.
+  2. potret layarnya (yang berisi wallpaper + panel + kartu login yang sudah
+     digambar greeter asli — autentikasi tetap milik greeter, bukan script ini),
+  3. minta scripts/greeter-textures.py memotong tekstur dari potret itu:
+     kartu login, strip panel (area jam ditambal), dan potongan jam asli,
+  4. jalankan overlay (greeter-anim.py) yang menyembunyikan kartu & jam lebih
+     dulu, lalu memunculkannya kembali saat ada tombol ditekan.
 
 Kalau ada apa pun yang tidak wajar (window tak muncul, potret beda dari
 wallpaper, PIL tidak ada, dsb) script hanya mencatat log dan keluar — layar
 login tetap tampil normal, jadi tidak ada risiko gagal login.
 """
+import argparse
+import json
 import os
 import shutil
 import signal
@@ -26,17 +29,17 @@ import time
 # Semua path bisa ditimpa lewat env (dipakai untuk uji coba lokal).
 WALLPAPER = os.environ.get('ANIME_GLASS_WALLPAPER',
                            '/usr/share/backgrounds/anime-glass/login-bg.jpg')
+HERE = os.path.dirname(os.path.abspath(__file__))
 OVERLAY = os.environ.get('ANIME_GLASS_OVERLAY',
                          '/usr/local/share/anime-glass/greeter-anim.py')
-OVERLAY_LOCAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'greeter-anim.py')
+TEXTURES = os.environ.get('ANIME_GLASS_TEXTURES',
+                          '/usr/local/share/anime-glass/greeter-textures.py')
+OG_LOCAL = os.path.join(HERE, 'greeter-anim.py')
+TX_LOCAL = os.path.join(HERE, 'greeter-textures.py')
 LOG = os.environ.get('ANIME_GLASS_LOG', '/var/log/anime-glass-anim.log')
 LOCK = '/run/anime-glass-anim.pid'
 CONF = os.environ.get('ANIME_GLASS_ANIM_CONF', '/etc/lightdm/anime-glass-anim.conf')
 WAIT_MAX = 12.0          # detik menunggu window greeter
-PANEL_LIMIT = 130        # piksel: di atas ini dianggap area panel
-CORE_T = 25              # ambang beda untuk kartu (kuat)
-SOFT_T = 6               # ambang beda untuk bayangan/soft edge
-SHADOW_PAD = 46          # perluasan area bayangan (px)
 
 
 def log(msg):
@@ -123,53 +126,39 @@ def shot_window(wid, path):
     return False
 
 
-def bbox_of(diff_img, threshold, y_min=0):
-    """Kotak terkecil area yang bedanya > threshold (mulai dari baris y_min)."""
-    from PIL import Image
-    gray = diff_img.convert('L')
-    if y_min:
-        gray = gray.crop((0, y_min, gray.width, gray.height))
-    mask = gray.point(lambda v: 255 if v >= threshold else 0)
-    box = mask.getbbox()
-    if not box:
+def build_textures(shot, outdir):
+    """Potong semua tekstur dari potret (logika ada di greeter-textures.py)."""
+    tx = TEXTURES if os.path.isfile(TEXTURES) else TX_LOCAL
+    if not os.path.isfile(tx):
+        log('greeter-textures.py tidak ada -> animasi dilewati')
         return None
-    if y_min:
-        box = (box[0], box[1] + y_min, box[2], box[3] + y_min)
-    return box
-
-
-def build_card(shot_path, bg_path, out_path, core, soft):
-    """Potong kartu dari potret + pisahkan bayangannya jadi lapisan semi-transparan."""
-    from PIL import Image, ImageChops, ImageDraw, ImageFilter
-
-    shot = Image.open(shot_path).convert('RGB')
-    bg = Image.open(bg_path).convert('RGB')
-    if shot.size != bg.size:
-        shot = shot.resize(bg.size, Image.LANCZOS)
-
-    x0, y0, x1, y1 = soft
-    crop = shot.crop((x0, y0, x1, y1))
-    shadow_src = ImageChops.difference(shot.crop((x0, y0, x1, y1)), bg.crop((x0, y0, x1, y1)))
-
-    # alpha: kartu = penuh (dengan sudut membulat), bayangan = seberapa gelap dari wallpaper
-    card = Image.new('RGBA', crop.size, (0, 0, 0, 0))
-    shadow_alpha = shadow_src.convert('L').point(lambda v: min(255, v * 3))
-    shadow_layer = Image.new('RGBA', crop.size, (0, 0, 0, 0))
-    shadow_layer.putalpha(shadow_alpha)
-
-    core_box = (core[0] - x0, core[1] - y0, core[2] - x0, core[3] - y0)
-    core_layer = crop.convert('RGBA')
-    mask = Image.new('L', crop.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle(core_box, radius=26, fill=255)
-    mask = mask.filter(ImageFilter.GaussianBlur(0.6))       # haluskan tepi
-    core_layer.putalpha(mask)
-
-    card = Image.alpha_composite(shadow_layer, core_layer)
-    card.save(out_path)
-    return out_path
+    try:
+        r = subprocess.run([sys.executable or 'python3', tx,
+                            '--shot', shot, '--wallpaper', WALLPAPER,
+                            '--outdir', outdir],
+                           capture_output=True, text=True, timeout=60)
+    except Exception as e:
+        log('gagal menjalankan greeter-textures.py: %s' % e)
+        return None
+    for line in (r.stdout or '').splitlines():
+        if line.strip().startswith('{'):
+            try:
+                return json.loads(line)
+            except ValueError:
+                pass
+    log('greeter-textures.py tidak mengeluarkan hasil (rc=%s)' % r.returncode)
+    return None
 
 
 def main():
+    ap = argparse.ArgumentParser(description='jalankan overlay animasi layar login')
+    ap.add_argument('--shot', default='',
+                    help='pakai potret ini (mode pratinjau; lewati pemotretan greeter)')
+    ap.add_argument('--pass', dest='extra', action='append', default=[],
+                    help='argumen tambahan untuk overlay (mis. --auto=5)')
+    a = ap.parse_args()
+    preview = bool(a.shot)
+
     cfg = read_conf()
     if cfg.get('enabled', '1') not in ('1', 'true', 'yes', 'on'):
         log('animasi dimatikan lewat %s' % CONF)
@@ -182,89 +171,96 @@ def main():
     except ImportError:
         log('python3-pil tidak ada -> animasi dilewati')
         return 0
-    overlay = OVERLAY if os.path.isfile(OVERLAY) else OVERLAY_LOCAL
+    overlay = OVERLAY if os.path.isfile(OVERLAY) else OG_LOCAL
     if not os.path.isfile(overlay):
         log('overlay %s tidak ada -> animasi dilewati' % overlay)
         return 0
 
-    w, h = screen_size()
-    deadline = time.time() + WAIT_MAX
-    wid = find_greeter_window(w, h, deadline)
-    if not wid:
-        log('window greeter tidak ditemukan dalam %gs -> animasi dilewati' % WAIT_MAX)
-        return 0
-    time.sleep(0.9)                                  # beri waktu greeter menggambar kartu
-
+    wid = ''
     tmp = tempfile.mkdtemp(prefix='anime-glass-anim-')
-    shot = os.path.join(tmp, 'shot.png')
-    if not shot_window(wid, shot):
-        log('gagal memotret window greeter (%s) -> animasi dilewati' % wid)
-        shutil.rmtree(tmp, ignore_errors=True)
-        return 0
-
-    try:
-        from PIL import Image, ImageChops
-        sh = Image.open(shot).convert('RGB')
-        bg = Image.open(WALLPAPER).convert('RGB')
-        if sh.size != bg.size:
-            sh = sh.resize(bg.size, Image.LANCZOS)
-        diff = ImageChops.difference(sh, bg)
-
-        soft = bbox_of(diff, SOFT_T, y_min=PANEL_LIMIT)
-        core = bbox_of(diff, CORE_T, y_min=PANEL_LIMIT)
-        # panel: hanya cari di strip atas (jangan sampai ikut menangkap kartu)
-        panel = bbox_of(diff.crop((0, 0, diff.width, PANEL_LIMIT)), SOFT_T)
-        if not core or not soft:
-            log('kartu login tidak terdeteksi di potret -> animasi dilewati')
+    if preview:
+        # potret sudah disiapkan pemanggil (mis. dari preview-login.py --mock-shot)
+        shot = os.path.abspath(a.shot)
+        if not os.path.isfile(shot):
+            log('potret %s tidak ada -> animasi dilewati' % shot)
+            shutil.rmtree(tmp, ignore_errors=True)
+            return 0
+    else:
+        w, h = screen_size()
+        deadline = time.time() + WAIT_MAX
+        wid = find_greeter_window(w, h, deadline)
+        if not wid:
+            log('window greeter tidak ditemukan dalam %gs -> animasi dilewati' % WAIT_MAX)
+            return 0
+        time.sleep(0.9)                              # beri waktu greeter menggambar kartu
+        shot = os.path.join(tmp, 'shot.png')
+        if not shot_window(wid, shot):
+            log('gagal memotret window greeter (%s) -> animasi dilewati' % wid)
             shutil.rmtree(tmp, ignore_errors=True)
             return 0
 
-        # pastikan latar potret benar-benar sama dengan wallpaper resmi (di luar kartu
-        # & panel). Kalau tidak sama (mis. resolusi/skala beda), animasi dibatalkan.
-        from PIL import ImageDraw, ImageStat
-        keep = Image.new('L', diff.size, 255)
-        pad = (max(0, soft[0] - SHADOW_PAD), max(0, soft[1] - SHADOW_PAD),
-               min(diff.width, soft[2] + SHADOW_PAD), min(diff.height, soft[3] + SHADOW_PAD))
-        ImageDraw.Draw(keep).rectangle(pad, fill=0)
-        if panel:
-            ImageDraw.Draw(keep).rectangle(
-                (0, 0, diff.width, min(PANEL_LIMIT, panel[3] + 6)), fill=0)
-        outside = Image.composite(diff.convert('L'), Image.new('L', diff.size, 0), keep)
-        beda = ImageStat.Stat(outside.point(lambda v: 255 if v > SOFT_T else 0)).sum[0] / 255.0
-        luas = ImageStat.Stat(keep).sum[0] / 255.0
-        rasio = beda / max(1.0, luas)
-        if rasio > 0.02:
-            log('latar potret beda dari wallpaper (%.1f%% piksel) -> animasi dilewati'
-                % (rasio * 100))
-            shutil.rmtree(tmp, ignore_errors=True)
-            return 0
-
-        card_rect = (max(0, soft[0] - SHADOW_PAD), max(0, soft[1] - SHADOW_PAD),
-                     min(bg.width, soft[2] + SHADOW_PAD), min(bg.height, soft[3] + SHADOW_PAD))
-        card_png = os.path.join(tmp, 'card.png')
-        build_card(shot, WALLPAPER, card_png, core, card_rect)
-    except Exception as e:
-        log('gagal menyiapkan overlay: %s -> animasi dilewati' % e)
+    texdir = tmp
+    geo = build_textures(shot, tmp)
+    if geo and geo.get('card') and not geo.get('panel'):
+        # Panel greeter kadang bukan bagian dari window yang dipotret. Kalau
+        # panel tidak ketemu, coba potret seluruh layar (root) sebagai cadangan
+        # — tanpa strip panel, panel akan "muncul mendadak" di akhir animasi.
+        alt = os.path.join(tmp, 'root')
+        os.makedirs(alt, exist_ok=True)
+        shot_root = os.path.join(alt, 'shot.png')
+        if shot_window('root', shot_root):
+            geo2 = build_textures(shot_root, alt)
+            if geo2 and geo2.get('card') and geo2.get('panel'):
+                log('panel tidak ada di potret window -> pakai potret layar penuh')
+                geo, texdir = geo2, alt
+    if not geo or geo.get('error') or not geo.get('card'):
+        log('tekstur gagal disiapkan (%s) -> animasi dilewati'
+            % (geo.get('error') if geo else 'tanpa hasil'))
+        shutil.rmtree(tmp, ignore_errors=True)
+        return 0
+    # pastikan potret memang layar login di atas wallpaper resmi; kalau tidak,
+    # animasi dibatalkan supaya layar login tidak berubah jadi aneh.
+    if geo.get('bg_match', 0) < 0.75:
+        log('potret bukan di atas wallpaper resmi (kecocokan %.0f%%) -> animasi dilewati'
+            % (geo.get('bg_match', 0) * 100))
         shutil.rmtree(tmp, ignore_errors=True)
         return 0
 
-    top_gap = min(PANEL_LIMIT, panel[3] + 10) if panel else 0
-    card_x, card_y = card_rect[0], card_rect[1]
-    log('kartu %s panel=%s top_gap=%d window=%s' % (card_rect, panel, top_gap, wid))
-    stop_previous()
-    proc = subprocess.Popen([sys.executable or 'python3', overlay,
-                             '--wallpaper', WALLPAPER,
-                             '--card', card_png,
-                             '--card-x', str(card_x), '--card-y', str(card_y),
-                             '--top-gap', str(top_gap),                                 '--focus-window', wid,
-                                 '--timeout', cfg.get('timeout', '120'),
-                                 '--duration', cfg.get('duration', '700'),
-                                 '--hint', cfg.get('hint', 'Tekan tombol apa saja untuk masuk'),
-                                 '--hint-sub', cfg.get('hint_sub',
-                                                       'klik di mana saja · kartu login akan muncul'),
-                                 '--hint-size', cfg.get('hint_size', '34'),
-                                 '--auto', cfg.get('auto', '0'),
-                                 '--log', LOG])
+    card = geo['card']
+    args = [sys.executable or 'python3', overlay,
+            '--wallpaper', WALLPAPER,
+            '--card', os.path.join(texdir, 'card.png'),
+            '--card-x', str(card[0]), '--card-y', str(card[1]),
+            '--top-gap', str(geo.get('top_gap', 0)),
+            '--timeout', cfg.get('timeout', '120'),
+            '--duration', cfg.get('duration', '700'),
+            '--hero', cfg.get('hero', '1'),
+            '--hero-size', cfg.get('hero_size', '94'),
+            '--hero-caption', cfg.get('hero_caption', 'SELAMAT DATANG'),
+            '--hint', cfg.get('hint', 'Tekan tombol apa saja untuk masuk'),
+            '--hint-sub', cfg.get('hint_sub',
+                                  'klik di mana saja · kartu login akan muncul'),
+            '--hint-size', cfg.get('hint_size', '34'),
+            '--auto', cfg.get('auto', '0'),
+            '--log', LOG]
+    panel_png = os.path.join(texdir, 'panel.png')
+    if os.path.isfile(panel_png):
+        args += ['--panel-strip', panel_png]
+    if geo.get('clock'):
+        clock = geo['clock']
+        args += ['--clock-crop', os.path.join(texdir, 'clock.png'),
+                 '--clock-x', str(clock[0]), '--clock-y', str(clock[1]),
+                 '--clock-w', str(clock[2] - clock[0]),
+                 '--clock-h', str(clock[3] - clock[1])]
+    if wid:
+        args += ['--focus-window', wid]
+    args += a.extra
+    log('kartu %s panel=%s jam=%s top_gap=%s window=%s'
+        % (card, geo.get('panel'), geo.get('clock'), geo.get('top_gap'), wid or '(pratinjau)'))
+
+    if not preview:
+        stop_previous()
+    proc = subprocess.Popen(args)
     try:
         with open(LOCK, 'w') as f:
             f.write(str(proc.pid))
