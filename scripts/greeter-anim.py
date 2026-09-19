@@ -51,7 +51,7 @@ gi.require_version('PangoCairo', '1.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango, PangoCairo  # noqa: E402
 
 # --- tuning animasi (semua dalam ms / px) -----------------------------------
-TICK_MS = 16            # ~60 fps saat animasi; idle cuma repaint area kecil
+TICK_MS = 33            # ~30 fps: cukup mulus, separuh beban CPU saat boot dingin
 BACK_R = 24             # jari-jari tombol kembali (lingkaran kaca kiri-bawah)
 SLIDE_PX = 170          # jarak awal kartu di bawah posisi akhirnya
 FLIP_START = 0.35       # skala Y awal (kartu "terlipat" dari bawah)
@@ -147,6 +147,7 @@ class Overlay(Gtk.Window):
         self.back_armed = False   # True = linger dihancurkan oleh tombol kembali
         self.done = False
         self.watch = None
+        self.idle_since = time.monotonic()   # anti-mash: abaikan input 300ms
 
         self.wall = self.load_pixbuf(a.wallpaper)
         self.card = self.load_pixbuf(a.card)
@@ -199,6 +200,7 @@ class Overlay(Gtk.Window):
 
         self.connect('key-press-event', self.on_input)
         self.connect('button-press-event', self.on_input)
+        self.connect('realize', self.on_realize_input)
         self.connect('destroy', self.on_destroy)
         GLib.timeout_add(TICK_MS, self.on_tick)
         GLib.timeout_add_seconds(4, self.refresh_clock)
@@ -628,8 +630,9 @@ class Overlay(Gtk.Window):
         enter = min(1.0, p / ENTER_PART)
         e = ease_out_cubic(enter)                    # slide melambat di akhir
         dy = (1.0 - e) * SLIDE_PX
-        # FLIP: selesai di 50% waktu; dari 0.35 (terlipat) -> 1.0 dengan overshoot
-        flip = ease_out_back(min(1.0, p / FLIP_PART), 0.9)
+        # FLIP: selesai di 50% waktu; dari 0.35 (terlipat) -> 1.0 TANPA
+        # overshoot (overshoot + fps rendah = terbaca melompat, bukan ngeflip)
+        flip = ease_out_cubic(min(1.0, p / FLIP_PART))
         sy = FLIP_START + (1.0 - FLIP_START) * flip
 
         cx = self.card_x + self.card_w / 2.0
@@ -698,6 +701,7 @@ class Overlay(Gtk.Window):
         win.connect('destroy', self.on_linger_destroy)
         win.show_all()
         self.linger = win
+        self.raise_floaters()
         log(self.a.log, 'jam menetap di (%d,%d) %dx%d' % (x, y + self.oy, w, h))
         if self.a.linger_ttl > 0:               # pratinjau: tutup sendiri nanti
             GLib.timeout_add_seconds(self.a.linger_ttl, self.close_linger)
@@ -763,6 +767,7 @@ class Overlay(Gtk.Window):
             win.move(x, y + self.oy)
             win.show_all()
             self.back_btn = (win, x, y, size)
+            self.raise_floaters()
             log(self.a.log, 'tombol kembali di (%d,%d)' % (x, y + self.oy))
         except Exception as e:
             log(self.a.log, 'tombol kembali gagal: %s' % e)
@@ -831,6 +836,7 @@ class Overlay(Gtk.Window):
                     self.animating = False
                     self.reversing = False
                     self.done = False
+                    self.idle_since = time.monotonic()
                     self.area.queue_draw()
                     self.steal_focus()
                     log(self.a.log, 'kembali ke tampilan awal (dibatalkan)')
@@ -861,6 +867,52 @@ class Overlay(Gtk.Window):
         return False
 
     @_fail_open
+    def panel_strip_h(self):
+        """Tinggi strip panel (koordinat overlay) yang diklik-tembuskan."""
+        if self.oy != 0:
+            return 0        # overlay mulai di bawah panel: tak ada yang dilubangi
+        ph = self.panel.get_height() if self.panel is not None else 0
+        if ph <= 0:
+            ph = max(0, self.a.top_gap)
+        return ph + 16      # + margin pil
+
+    def on_realize_input(self, _w):
+        self.apply_input_shape()
+
+    def apply_input_shape(self):
+        """Lubangi area panel: klik menu session/power diteruskan ke greeter
+        (jadi dropdown BISA dibuka saat idle), klik di tempat lain tetap
+        memunculkan form. Keyboard tidak berubah (fokus tetap di overlay)."""
+        try:
+            win = self.get_window()
+            if win is None:
+                return
+            h = self.panel_strip_h()
+            if h <= 0:
+                return
+            reg = cairo.Region(cairo.RectangleInt(0, 0, self.sw, self.h))
+            reg.subtract(cairo.RectangleInt(0, 0, self.sw, min(h, self.h)))
+            win.input_shape_combine_region(reg)
+            log(self.a.log, 'input dilubangi setinggi %dpx untuk panel' % h)
+        except Exception as e:
+            log(self.a.log, 'input shape dilewati: %s' % e)
+
+    def raise_floaters(self):
+        """Tanpa WM, keep-above tidak ditegakkan: naikkan lagi window kecil
+        (jam menetap + tombol kembali) supaya tak tertutup greeter."""
+        wins = [self.linger]
+        wins.append(self.back_btn[0] if self.back_btn else None)
+        for w in wins:
+            if w is None:
+                continue
+            try:
+                gw = w.get_window()
+                if gw is not None:
+                    gw.raise_()
+            except Exception:
+                pass
+
+    @_fail_open
     def on_input(self, _w, e):
         if self.done:
             return False          # animasi selesai: overlay utama sudah tutup
@@ -873,7 +925,10 @@ class Overlay(Gtk.Window):
                 self.area.queue_draw()
                 log(self.a.log, 'dibatalkan: kembali ke tampilan awal')
             return True
-        # Idle: input apa pun (termasuk klik kanan) memunculkan form.
+        # Idle: input apa pun (termasuk klik kanan) memunculkan form,
+        # tapi abaikan 300ms setelah kembali idle (anti-mash tombol).
+        if time.monotonic() - self.idle_since < 0.3:
+            return True
         self.reveal()
         return True                                     # tombol pertama "dipakai" untuk muncul
 
@@ -916,6 +971,7 @@ class Overlay(Gtk.Window):
         """Cadangan periodik: pastikan jam tidak pernah tertinggal."""
         if not self.a.focus_window:
             return True
+        self.raise_floaters()     # greeter bisa me-raise dirinya saat diklik
         if self.greeter_gone():
             self.quit_now('window greeter sudah tidak ada')
             return False

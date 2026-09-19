@@ -605,6 +605,10 @@ Membatalkan: selama kartu naik, **Esc / klik kanan** kembali ke tampilan awal;
 setelah form tampil, klik lingkaran kaca **‹** kiri-bawah untuk flip kembali.
 (Tombol Cancel di kartu milik binary greeter — perilakunya bawaan LightDM.)
 
+Catatan perilaku: klik di area panel atas diteruskan ke greeter (menu
+session/power bisa dibuka saat idle), klik di tempat lain memunculkan form;
+membuka menu tetap dengan **klik** (hover-open milik kode C greeter).
+
 **Menyetel animasi tanpa login berulang** — render beberapa frame ke PNG lalu
 periksa (0 = wallpaper + jam besar, 1 = kartu mendarat + jam di atas form):
 ```bash
