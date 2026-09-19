@@ -221,7 +221,7 @@ hero=1
 # ukuran font jam besar di tengah (px)
 hero_size=120
 # tulisan kecil di atas jam (kosongkan bila tak mau)
-hero_caption=SELAMAT DATANG
+hero_caption=welcome suo
 # ukuran jam setelah form muncul (di atas kartu login, px)
 clock_size=54
 # jarak jam ke tepi atas kartu login (px)
@@ -232,7 +232,7 @@ EOF
         chmod 644 "$ANIM_CONF"
     else
         # conf lama: tambahkan setelan BARU saja (jangan sentuh yang sudah ada)
-        for kv in 'hero=1' 'hero_size=120' 'hero_caption=SELAMAT DATANG' \
+        for kv in 'hero=1' 'hero_size=120' 'hero_caption=welcome suo' \
                   'clock_size=54' 'clock_gap=64' 'stay=1'; do
             key="${kv%%=*}"
             grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$ANIM_CONF" \

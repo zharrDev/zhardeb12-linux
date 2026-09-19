@@ -20,6 +20,13 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
+/* --- Semua teks halaman login pakai Poppins (fallback Inter) --- */
+#panel_window, #panel_window *,
+#login_window, #login_window *,
+menu, menu *, button, entry, label {
+    font-family: Poppins, Inter, sans-serif;
+}
+
 /* ============ HEADER ATAS — PIL kaca mengambang (host|session|power) ====== */
 /* #panel_window adalah window top-level: margin di SINI diabaikan WM sehingga
    pil jatuh jadi bar polos. Triknya: window dibuat transparan penuh, PIL-nya

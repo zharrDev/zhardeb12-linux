@@ -955,7 +955,7 @@ def main():
     ap.add_argument('--top-gap', type=int, default=0)
     ap.add_argument('--hero', type=int, default=1, help='1 = tampilkan jam di tengah')
     ap.add_argument('--hero-size', type=int, default=120, help='ukuran jam besar (px)')
-    ap.add_argument('--hero-caption', default='SELAMAT DATANG')
+    ap.add_argument('--hero-caption', default='welcome suo')
     ap.add_argument('--clock-size', type=int, default=54, help='ukuran jam di atas form (px)')
     ap.add_argument('--clock-gap', type=int, default=64, help='jarak jam ke tepi atas kartu (px)')
     ap.add_argument('--stay', type=int, default=1, help='1 = jam menetap di atas form')

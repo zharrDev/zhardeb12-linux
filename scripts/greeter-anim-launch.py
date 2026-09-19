@@ -245,7 +245,7 @@ def main():
             '--duration', cfg.get('duration', '700'),
             '--hero', cfg.get('hero', '1'),
             '--hero-size', cfg.get('hero_size', '120'),
-            '--hero-caption', cfg.get('hero_caption', 'SELAMAT DATANG'),
+            '--hero-caption', cfg.get('hero_caption', 'welcome suo'),
             '--clock-size', cfg.get('clock_size', '54'),
             '--clock-gap', cfg.get('clock_gap', '64'),
             '--stay', cfg.get('stay', '1'),
