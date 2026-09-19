@@ -827,12 +827,14 @@ class Overlay(Gtk.Window):
     @_fail_open
     def on_tick(self):
         if self.animating:
-            step = TICK_MS / max(1.0, float(self.a.duration))
+            # Berbasis WAKTU nyata (bukan jumlah tick): frame boleh lambat di
+            # boot dingin, tapi animasi tetap selesai tepat waktu.
+            dur = max(1.0, float(self.a.duration)) / 1000.0
+            el = time.monotonic() - self.anim_start
             if self.reversing:
                 # putar balik: kartu turun + jam kembali ke tengah (flip back)
-                self.progress -= step
+                self.progress = max(0.0, 1.0 - el / dur)
                 if self.progress <= 0.0:
-                    self.progress = 0.0
                     self.animating = False
                     self.reversing = False
                     self.done = False
@@ -843,9 +845,8 @@ class Overlay(Gtk.Window):
                     return True
                 self.area.queue_draw()
             else:
-                self.progress += step
+                self.progress = min(1.0, el / dur)
                 if self.progress >= 1.0:
-                    self.progress = 1.0
                     self.area.queue_draw()
                     self.finish()
                     return False
