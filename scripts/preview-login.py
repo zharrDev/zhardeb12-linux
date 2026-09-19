@@ -27,8 +27,10 @@ GLASS_INSTALLED = '/usr/share/backgrounds/anime-glass'
 CSS_SRC = os.path.join(SRC_DIR, 'config/lightdm/themes/anime-glass-greeter/gtk-3.0/gtk.css')
 AVATAR_SRC = os.path.join(SRC_DIR, 'config/lightdm/avatar/anime-avatar.png')
 SHOT = os.path.expanduser('~/Pictures/anime-login-preview.png')
+# selalu mulai dari wallpaper TAJAM (jangan dari yang sudah di-blur) supaya
+# hasil preview sama dengan hasil deploy.
 BG_CANDIDATES = [
-    os.path.join(GLASS_INSTALLED, 'login-bg.jpg'),
+    os.path.join(GLASS_INSTALLED, 'login-bg-sharp.jpg'),
     os.path.join(SRC_DIR, 'config/wallpapers/login/anime-login-bg.jpg'),
 ]
 
@@ -69,36 +71,22 @@ def load_greeter_xml():
 
 # ----------------------------------------------------- siapkan tekstur & CSS
 def prepare_assets(tmp):
-    """Wallpaper (cover ke ukuran layar) + tekstur kaca + CSS dengan path lokal."""
-    from PIL import Image, ImageFilter
+    """Aset login dibuat oleh scripts/login-assets.py — logika yang SAMA dengan
+    saat deploy, jadi yang tampil di preview = yang nanti muncul di login asli."""
     bg_src = next((p for p in BG_CANDIDATES if os.path.isfile(p)), None)
     if not bg_src:
         raise SystemExit('[preview] wallpaper login tidak ditemukan')
     # ukuran monitor utama (tanpa API deprecated)
     display = Gdk.Display.get_default()
-    mon = display.get_monitor(0)
-    geo = mon.get_geometry()
-    sw, sh = geo.width, geo.height
+    geo = display.get_monitor(0).get_geometry()
 
-    im = Image.open(bg_src).convert('RGB')
-    # cover: penuhi layar, potong dari tengah (sama seperti greeter menaruh background)
-    sr, tr = im.width / im.height, sw / sh
-    if sr > tr:
-        w = int(im.height * tr)
-        im = im.crop(((im.width - w) // 2, 0, (im.width - w) // 2 + w, im.height))
-    else:
-        h = int(im.width / tr)
-        im = im.crop((0, (im.height - h) // 2, im.width, (im.height - h) // 2 + h))
-    im = im.resize((sw, sh), Image.LANCZOS)
-    im.save(os.path.join(tmp, 'login-bg.jpg'), quality=92)
+    helper = os.path.join(SRC_DIR, 'scripts/login-assets.py')
+    subprocess.run([sys.executable, helper, '--src', bg_src, '--outdir', tmp,
+                    '--size', '%dx%d' % (geo.width, geo.height),
+                    '--bg-blur', '16', '--card-blur', '8', '--dim', '0.90',
+                    '--vignette', '0.60'], check=True)
 
-    # tekstur kaca: potongan TEPAT di posisi kartu & panel, lalu di-blur (pre-baked)
-    (im.crop(((sw - 560) // 2, (sh - 350) // 2, (sw - 560) // 2 + 560, (sh - 350) // 2 + 350))
-       .filter(ImageFilter.GaussianBlur(26))).save(os.path.join(tmp, 'glass-panel.jpg'), quality=90)
-    (im.crop((0, 0, sw, 48)).filter(ImageFilter.GaussianBlur(20))
-       ).save(os.path.join(tmp, 'glass-bar.jpg'), quality=90)
-
-    # CSS produksi, tapi url()-nya diarahkan ke tekstur lokal
+    # CSS produksi, tapi url()-nya diarahkan ke aset lokal
     css = open(CSS_SRC, encoding='utf-8').read()
     css = css.replace('/usr/share/backgrounds/anime-glass/', tmp + '/')
     css_path = os.path.join(tmp, 'gtk.css')

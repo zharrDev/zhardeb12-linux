@@ -414,12 +414,25 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin # tampil kartu login (
 ```
 
 Yang dipasang:
-- `/usr/share/backgrounds/anime-glass/login-bg.jpg` — dari `config/wallpapers/login/`
-  (fallback: wallpaper aktif `anime-1920x1080.jpg`)
+- `/usr/share/backgrounds/anime-glass/login-bg.jpg` — **wallpaper login di-blur
+  lembut + digelapkan + vignette** (tepi lebih gelap) supaya kartu kacanya
+  menonjol; versi tajamnya diarsipkan sebagai `login-bg-sharp.jpg`. Sumber:
+  `config/wallpapers/login/` (fallback: wallpaper aktif `anime-1920x1080.jpg`)
 - `/usr/share/backgrounds/anime-glass/glass-panel.jpg` + `glass-bar.jpg` —
-  **tekstur kaca hasil blur** dari wallpaper (potongan area kartu 560×350 dan
-  band atas panel 1920×48), dibuat otomatis oleh script dengan `convert`
-  (fallback: `python3 + Pillow`)
+  **tekstur kaca** (potongan area kartu 560×350 dan band atas panel 48px) diambil
+  dari wallpaper yang sama, jadi kartu & panel "menyatu" dengan latar
+- Generator asetnya satu tempat: `scripts/login-assets.py` — dipakai baik oleh
+  script deploy **maupun** preview. Nada blurnya bisa disetel:
+  ```bash
+  python3 scripts/login-assets.py --src wallpaper.jpg --outdir /tmp/out \
+      --bg-blur 16 --card-blur 8 --dim 0.90 --vignette 0.60 --size 1920x1080
+  #  --bg-blur  tinggi = latar makin lembut   --card-blur  kecil = kartu makin tajam
+  #  --dim     pengali kecerahan latar        --vignette  0.60 = sudut lebih gelap
+  #  --bg-blur 0 = latar tajam (tanpa blur/vignette)
+  ```
+  Ganti wallpaper login? Taruh saja gambar landscape baru di
+  `config/wallpapers/login/` (jpg/png) lalu jalankan deploy ulang — warna blur,
+  vignette, dan tekstur kaca kartu otomatis mengikuti gambar itu.
 - `/usr/share/pixmaps/anime-glass-avatar.png` — **avatar user** untuk kartu login,
   sekaligus dipasang ke `~/.face` (yang lama di-backup `~/.face.bak.<tanggal>`)
 - `/usr/share/themes/anime-glass-greeter/` — tema CSS glass khusus greeter
@@ -446,8 +459,20 @@ sudo bash scripts/apply-lightdm-greeter.sh --no-autologin
 > Kenapa blur-nya "dibakar" (pre-baked) bukan realtime? Greeter LightDM jalan
 > **tanpa compositor**, jadi blur realtime tidak mungkin dan tidak ada efek
 > berat saat login. Tekstur kaca dipotong **tepat di posisi kartu/panel** pada
-> wallpaper (1:1, layar 1920×1080) sehingga hasilnya menyatu dengan latar —
+> wallpaper (1:1 sesuai resolusi layar) sehingga hasilnya menyatu dengan latar —
 > prinsip sama seperti dotfiles Hyprland (By-LeyzS) yang memakai blur + wallpaper.
+
+### 👀 Lihat hasilnya tanpa logout / reboot
+```bash
+bash scripts/preview-login.sh        # tampil 20 detik di layar (ESC = tutup)
+bash scripts/preview-login.sh 40     # tampil 40 detik
+```
+Preview ini membangun ulang layar login dari **UI XML asli greeter + CSS tema +
+avatar + panel + wallpaper**, jadi yang tampil = tampilan login sebenarnya
+(greeter asli tidak bisa dipratinjau saat sesi desktop hidup karena daemon
+`lightdm` memegang seat). Hasilnya otomatis tersimpan sebagai screenshot di
+`~/Pictures/anime-login-preview.png` — bisa dibuka kapan saja dengan
+`xdg-open ~/Pictures/anime-login-preview.png`.
 
 > Ringan: greeter GTK polos tanpa efek berat — hanya CSS & transparansi, RAM
 > greeter ±20–30 MB. Uji tanpa reboot: `sudo systemctl restart lightdm`

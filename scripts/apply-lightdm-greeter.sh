@@ -93,58 +93,34 @@ fi
 [ -n "$LOGIN_SRC" ] || { printf '[login] tidak ada wallpaper login ditemukan\n' >&2; exit 1; }
 
 mkdir -p "$LOGIN_BG_DIR"
-install -m 644 "$LOGIN_SRC" "$LOGIN_BG_DIR/login-bg.jpg"
-ok "Wallpaper -> $LOGIN_BG_DIR/login-bg.jpg ($(basename "$LOGIN_SRC"))"
+# arsip versi TAJAM (kalau nanti mau dipakai lagi: --bg-blur 0)
+install -m 644 "$LOGIN_SRC" "$LOGIN_BG_DIR/login-bg-sharp.jpg"
 
-# ---------------------------- 2b) tekstur kaca (frosted glass) + avatar user
-# Greeter TIDAK punya compositor, jadi blur tidak bisa realtime. Solusinya:
-# potong area kartu & panel dari wallpaper lalu blur di muka (pre-baked).
-# Hasilnya efek frosted glass yang menyatu dengan wallpaper, tetap ringan.
+# ---------------------------- 2b) aset tampilan login (background + kaca + avatar)
+# Greeter TIDAK punya compositor -> blur dipakai di muka (pre-baked):
+#   login-bg.jpg     : wallpaper di-blur lembut + digelapkan + vignette
+#   glass-panel.jpg  : tekstur kaca kartu (crop tepat di area kartu, blur ringan)
+#   glass-bar.jpg    : tekstur kaca panel atas (band paling atas background)
 AVATAR_SRC="$SRC_DIR/config/lightdm/avatar/anime-avatar.png"
 AVATAR_SYS="/usr/share/pixmaps/anime-glass-avatar.png"
 
-gen_glass() {                       # gen_glass <wallpaper> <output> <panel|bar>
-    local src="$1" out="$2" kind="$3" tmp
-    tmp="$(mktemp /tmp/anime-glass-XXXXXX.jpg)"
-    if command -v convert >/dev/null 2>&1; then
-        # normalisasi ke bingkai layar 1920x1080 (cover, dari tengah)
-        convert "$src" -resize 1920x1080^ -gravity center -extent 1920x1080 +repage "$tmp" 2>/dev/null \
-            || cp "$src" "$tmp"
-        if [ "$kind" = "bar" ]; then
-            convert "$tmp" -gravity north -crop 1920x48+0+0 +repage -blur 0x20 -quality 90 "$out" 2>/dev/null || true
-        else
-            convert "$tmp" -gravity center -crop 560x350+0+0 +repage -blur 0x26 -quality 90 "$out" 2>/dev/null || true
-        fi
-    elif python3 -c 'import PIL' 2>/dev/null; then
-        python3 - "$src" "$out" "$kind" <<'PY' || true
-import sys
-from PIL import Image, ImageFilter
-src, out, kind = sys.argv[1], sys.argv[2], sys.argv[3]
-im = Image.open(src).convert('RGB')
-sr, tr = im.width / im.height, 1920 / 1080
-if sr > tr:                                  # sumber lebih lebar -> potong kiri/kanan
-    w = int(im.height * tr)
-    im = im.crop(((im.width - w) // 2, 0, (im.width - w) // 2 + w, im.height))
-else:                                        # sumber lebih tinggi -> potong atas/bawah
-    h = int(im.width / tr)
-    im = im.crop((0, (im.height - h) // 2, im.width, (im.height - h) // 2 + h))
-im = im.resize((1920, 1080), Image.LANCZOS)
-if kind == 'bar':
-    patch, radius = im.crop((0, 0, 1920, 48)), 20
-else:
-    patch = im.crop((680, 365, 680 + 560, 365 + 350))
-    radius = 26
-patch.filter(ImageFilter.GaussianBlur(radius)).save(out, quality=90)
-PY
-    fi
-    rm -f "$tmp"
-    [ -f "$out" ] || cp "$src" "$out"   # jaring terakhir: tanpa blur, berkas tetap ada
-}
+# Resolusi layar (bila DISPLAY ada) supaya crop sesuai; kalau tidak -> 1920x1080
+SCREEN_SIZE="1920x1080"
+if command -v xrandr >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    RES="$(xrandr 2>/dev/null | awk '/[*]/ {print $1; exit}')"
+    [ -n "$RES" ] && SCREEN_SIZE="$RES"
+fi
 
-gen_glass "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-panel.jpg" panel
-# panel atas = band paling atas wallpaper, supaya kaca panel "menyatu"
-gen_glass "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-bar.jpg" bar
-ok "Tekstur kaca -> glass-panel.jpg (kartu) + glass-bar.jpg (panel)"
+if command -v python3 >/dev/null 2>&1 && [ -f "$SRC_DIR/scripts/login-assets.py" ]; then
+    python3 "$SRC_DIR/scripts/login-assets.py" --src "$LOGIN_SRC" --outdir "$LOGIN_BG_DIR" \
+        --size "$SCREEN_SIZE" --bg-blur 16 --card-blur 8 --dim 0.90 --vignette 0.60 \
+        || say "gagal membuat aset login — pakai wallpaper apa adanya"
+fi
+# jaring terakhir: pastikan ketiga berkas ada (tanpa blur pun tetap tampil)
+[ -f "$LOGIN_BG_DIR/login-bg.jpg" ]    || install -m 644 "$LOGIN_SRC" "$LOGIN_BG_DIR/login-bg.jpg"
+[ -f "$LOGIN_BG_DIR/glass-panel.jpg" ] || cp "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-panel.jpg"
+[ -f "$LOGIN_BG_DIR/glass-bar.jpg" ]   || cp "$LOGIN_BG_DIR/login-bg.jpg" "$LOGIN_BG_DIR/glass-bar.jpg"
+ok "Aset login -> login-bg.jpg (blur+vignette), glass-panel.jpg, glass-bar.jpg"
 
 # Avatar anime untuk user login (juga dipakai greeter via default-user-image)
 if [ -f "$AVATAR_SRC" ]; then
