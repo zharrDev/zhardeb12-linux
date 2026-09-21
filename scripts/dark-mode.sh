@@ -152,6 +152,23 @@ if ! SET_WALL=0 \
     warn "Gagal menyamakan warna UI (lihat $STATE_DIR/dark-mode.log)."
 fi
 
+# --- 4b) regenerasi haze conky dari wallpaper aktif ------------------------
+# update-wallpaper.sh sudah melakukannya, tapi kadang timing race dengan
+# restart conky. Regenerasi eksplisit di sini menjamin anime-haze.png
+# selalu cocok dengan wallpaper yang sedang tampil.
+CONKY_CONF="$HOME/.config/conky/anime-glass.conf"
+if [ -f "$CONKY_CONF" ] && [ -f "$IMG" ]; then
+    GX=$(sed -n 's/^[[:space:]]*gap_x[[:space:]]*=[[:space:]]*\([0-9-]*\).*/\1/p' "$CONKY_CONF" | head -1)
+    GY=$(sed -n 's/^[[:space:]]*gap_y[[:space:]]*=[[:space:]]*\([0-9-]*\).*/\1/p' "$CONKY_CONF" | head -1)
+    CW=$(sed -n 's/^[[:space:]]*maximum_width[[:space:]]*=[[:space:]]*\([0-9-]*\).*/\1/p' "$CONKY_CONF" | head -1)
+    CH=$(sed -n 's/^[[:space:]]*minimum_height[[:space:]]*=[[:space:]]*\([0-9-]*\).*/\1/p' "$CONKY_CONF" | head -1)
+    GX=${GX:-32}; GY=${GY:-265}; CW=${CW:-340}; CH=${CH:-550}
+    convert "$IMG" -crop "${CW}x${CH}+${GX}+${GY}" +repage \
+        -blur 0x16 -modulate 66,112 \
+        -quality 92 "$HOME/.config/conky/anime-haze.png" 2>/dev/null
+    msg "Haze conky di-regenerate dari wallpaper aktif."
+fi
+
 # --- 5) lepas kurtain transisi & pastikan wallpaper terpasang ---------------
 [ -n "$FADE_PID" ] && touch "$RELEASE_FILE" 2>/dev/null || true
 if [ -n "$FADE_PID" ]; then
