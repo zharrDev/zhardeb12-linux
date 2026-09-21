@@ -6,10 +6,15 @@
    TIDAK punya compositor, blur tidak bisa realtime), di atasnya tint navy
    transparan + border gradasi biru→ungu→lavender.
 
-   Selector mengikuti widget ASLI lightdm-gtk-greeter 2.0.8:
-     #panel_window, #login_window, #content_frame, #buttonbox_frame,
-     #user_image, #user_image_border, #username_entry, #password_entry,
-     #login_button, #greeter_infobar
+   Selector mengikuti widget ASLI lightdm-gtk-greeter 2.0.8 (dicek dari
+   GtkBuilder di dalam binary: `strings /usr/sbin/lightdm-gtk-greeter`):
+     #panel_window (GtkEventBox) > menubar (GreeterMenuBar, node "menubar"),
+     #login_window > #content_frame > [#user_image_border > #user_image,
+       #user_combobox, #prompt_entry (username & password!), #buttonbox_frame >
+       #cancel_button + #login_button], #greeter_infobar.
+   PENTING: kedua entry (username+password) bernama `prompt_entry` — BUKAN
+   `username_entry`/`password_entry`. Dialog power bernama #power_window
+   (bukan #shutdown_dialog/#restart_dialog).
    GTK3 3.24 (Debian 12). Tanpa compositor — semua efek via CSS murni.
    ============================================================================ */
 
@@ -162,7 +167,9 @@ menu menuitem:hover,
 }
 
 /* ============ KARTU LOGIN — glass buram, BESAR, di tengah layar ============ */
+/* (#power_window = dialog shutdown/restart di greeter 2.0.8) */
 #login_window,
+#power_window,
 #shutdown_dialog,
 #restart_dialog {
     border: 2px solid transparent;
@@ -218,9 +225,12 @@ menu menuitem:hover,
     color: rgba(180, 190, 254, 0.95);
 }
 
-/* --- ENTRY PASSWORD: pill besar dengan glow aksen saat fokus --- */
+/* --- ENTRY USERNAME+PASSWORD: pill besar dengan glow aksen saat fokus ---
+   (nama asli keduanya = prompt_entry) */
 #login_window entry,
 #login_window .entry,
+#login_window #prompt_entry,
+#prompt_entry,
 #username_entry,
 #password_entry {
     background-color: rgba(9, 11, 20, 0.62);
@@ -238,6 +248,8 @@ menu menuitem:hover,
 }
 #login_window entry:focus,
 #login_window .entry:focus,
+#login_window #prompt_entry:focus,
+#prompt_entry:focus,
 #username_entry:focus,
 #password_entry:focus {
     border-color: rgba(110, 175, 220, 0.98);
@@ -267,6 +279,8 @@ menu menuitem:hover,
 /* --- TOMBOL: pill besar gradasi aksen --- */
 #login_window button,
 #login_window .button,
+#power_window button,
+#power_window .button,
 #shutdown_dialog button,
 #restart_dialog button {
     background-color: rgba(95, 162, 206, 0.95);
@@ -285,6 +299,8 @@ menu menuitem:hover,
 }
 #login_window button:hover,
 #login_window .button:hover,
+#power_window button:hover,
+#power_window .button:hover,
 #shutdown_dialog button:hover,
 #restart_dialog button:hover {
     background-image: linear-gradient(135deg, #77b8e0 0%, #8f85e6 100%);
@@ -293,18 +309,23 @@ menu menuitem:hover,
     color: #ffffff;
 }
 #login_window button:active,
-#login_window .button:active {
+#login_window .button:active,
+#power_window button:active,
+#power_window .button:active {
     background-image: linear-gradient(135deg, #4a92c2 0%, #6a5fc4 100%);
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
 }
 #login_window button:focus,
 #login_window .button:focus,
-#login_window button.default {
+#login_window button.default,
+#power_window button:focus,
+#power_window .button:focus {
     border: 1px solid rgba(255, 255, 255, 0.38);
     outline: none;
 }
-/* tombol Cancel (dialog power) = glass netral, bukan aksen */
+/* tombol Cancel (login + dialog power) = glass netral, bukan aksen */
 #login_window #cancel_button,
+#power_window #cancel_button,
 #shutdown_dialog #cancel_button,
 #restart_dialog #cancel_button {
     background-color: rgba(255, 255, 255, 0.10);
@@ -313,6 +334,7 @@ menu menuitem:hover,
     color: #e6e9ff;
 }
 #login_window #cancel_button:hover,
+#power_window #cancel_button:hover,
 #shutdown_dialog #cancel_button:hover,
 #restart_dialog #cancel_button:hover {
     background-color: rgba(255, 255, 255, 0.18);
@@ -351,10 +373,12 @@ menu menuitem:hover,
 }
 
 /* ================= DIALOG POWER (shutdown/restart/logout) ================ */
+#power_window #content_frame,
 #shutdown_dialog #content_frame,
 #restart_dialog #content_frame {
     padding: 26px 30px 14px;
 }
+#power_window #buttonbox_frame,
 #shutdown_dialog #buttonbox_frame,
 #restart_dialog #buttonbox_frame {
     padding: 4px 30px 22px;

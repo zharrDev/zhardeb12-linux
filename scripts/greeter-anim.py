@@ -53,7 +53,8 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango, PangoCairo  # noqa: 
 
 # --- tuning animasi (semua dalam ms / px) -----------------------------------
 TICK_MS = 33            # ~30 fps: cukup mulus, separuh beban CPU saat boot dingin
-BACK_R = 24             # jari-jari tombol kembali (lingkaran kaca kiri-bawah)
+BACK_W = 140            # tombol kembali: pil kaca (bukan lingkaran lagi)
+BACK_H = 56
 SLIDE_PX = 170          # jarak awal kartu di bawah posisi akhirnya
 FLIP_START = 0.35       # skala Y awal (kartu "terlipat" dari bawah)
 ENTER_PART = 0.72       # 72% waktu = masuk, 28% terakhir = "mendarat"
@@ -152,9 +153,13 @@ class Overlay(Gtk.Window):
         self.linger_rect = None   # (x, y, w, h) overlay untuk jam menetap
         self.linger_sub = None    # potongan wallpaper di bawah jam menetap
         self.linger_img = None    # widget gambar jam menetap
+        self.linger_min = ''      # 'HH:MM' terakhir yg digambar di jam menetap
         self.cancel_active = False
         self.cancel_ref = None
         self.cancel_last_frac = None
+        self.reverse_from = 1.0   # progres saat mulai flip-balik (agar mulus)
+        self.linger_box = None    # (w, h) TETAP window jam menetap (anti-ukur ulang)
+        self.hint_frozen = None   # timestamp beku utk titik-hint selama flip-balik
 
         self.wall = self.load_pixbuf(a.wallpaper)
         self.card = self.load_pixbuf(a.card)
@@ -240,24 +245,25 @@ class Overlay(Gtk.Window):
         l.set_font_description(Pango.FontDescription(font))
         return l, l.get_pixel_size()
 
-    def _time_pixbuf(self, fs, sec_fs=None):
-        """Pixbuf: jam 'HH:MM' (putih tebal) + detik aksen di kanannya.
+    def _time_pixbuf(self, fs, sec_fs=None, hhmm=None, sec=None):
+        """Pixbuf: jam 'HH:MM' putih tebal, TANPA detik.
 
         Sengaja TAJAM: tanpa halo/glow (halo itu yang membuat jam terlihat
         kabur). Hanya bayangan gelap tipis 2px ke bawah supaya tetap terbaca di
         atas wallpaper yang terang.
+
+        `hhmm` boleh diisi untuk MENGETES lebar teks (lihat `_max_clock_box`)
+        tanpa menunggu menit tertentu. Parameter `sec_fs`/`sec` dipertahankan
+        agar pemanggil lama tetap kompatibel, tapi diabaikan.
         """
         now = time.localtime()
-        hhmm = time.strftime('%H:%M', now)
-        sec = time.strftime('%S', now)
-        sec_fs = sec_fs or max(13, int(fs * 0.26))
+        hhmm = hhmm if hhmm is not None else time.strftime('%H:%M', now)
         pad = 4                                  # ruang tipis untuk bayangan
         scratch = cairo.ImageSurface(cairo.FORMAT_ARGB32, 8, 8)
         scr = cairo.Context(scratch)
         tl, (tw, th) = self.lay(scr, hhmm, '%s Bold %dpx' % (FONT_UI, fs))
-        sl, (sw2, sh2) = self.lay(scr, sec, '%s SemiBold %dpx' % (FONT_UI, sec_fs))
 
-        w = tw + int(sw2 * 0.55) + sw2 + pad * 2
+        w = tw + pad * 2
         h = th + pad * 2
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         cr = cairo.Context(surf)
@@ -268,11 +274,30 @@ class Overlay(Gtk.Window):
         cr.move_to(tx, ty)
         cr.set_source_rgba(1, 1, 1, 1.0)
         PangoCairo.show_layout(cr, tl)
-        cr.move_to(tx + tw + int(sw2 * 0.55), ty + th - sh2 - th * 0.12)
-        cr.set_source_rgba(*LAVENDER, 1.0)
-        PangoCairo.show_layout(cr, sl)
         pix = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
         return pix, tw, th
+
+    def _max_clock_box(self, fs):
+        """Ukuran TETAP untuk window jam menetap: selebar jam paling lebar.
+
+        Tanpa detik, lebar hanya berubah tiap menit (lebar digit Poppins
+        berbeda-beda). Kotak tetap ini menampung semua kemungkinan 'HH:MM'
+        sehingga isinya cukup digambar ulang (repaint) tanpa resize — jam
+        tidak "menari" kiri-kanan dan window tidak dibangun ulang terus.
+        """
+        best_w = best_h = 0
+        for hhmm in ('88:88', '23:59', '20:59', '12:34', '04:44', '08:08'):
+            pix, _tw, _th = self._time_pixbuf(fs, hhmm=hhmm)
+            if pix is None:
+                continue
+            best_w = max(best_w, pix.get_width())
+            best_h = max(best_h, pix.get_height())
+        # margin aman: kolom teks diuji di semua jam, tapi font/probe bisa
+        # meleset beberapa px; kotak lebih LEBAR cuma menampilkan wallpaper
+        # (tak terlihat), jadi lebih baik longgar daripada jam terpotong.
+        if best_w <= 0:
+            return (80, 80)
+        return (best_w + 28, best_h + 4)
 
     def _extra_pixbuf(self, fs):
         """Pixbuf: caption kecil + garis aksen gradasi + hari/tanggal."""
@@ -318,9 +343,12 @@ class Overlay(Gtk.Window):
 
     def clock_target(self):
         """Titik jam FINAL: di tengah kartu, tepat di atas tepi atas kartu."""
-        fh = self.pix_final.get_height() if self.pix_final else 80
-        cy = self.card_top - self.a.clock_gap - fh / 2.0
-        cy = max(fh / 2.0 + 6, cy)
+        if self.linger_box:
+            bh = self.linger_box[1]
+        else:
+            bh = self.pix_final.get_height() if self.pix_final else 80
+        cy = self.card_top - self.a.clock_gap - bh / 2.0
+        cy = max(bh / 2.0 + 6, cy)
         return self.card_cx, cy
 
     def build_clock(self):
@@ -330,7 +358,7 @@ class Overlay(Gtk.Window):
             self.pix_time = self.pix_extra = self.pix_final = None
             return False
         now = time.localtime()
-        key = '%s|%s|%d' % (time.strftime('%H:%M:%S', now), a.clock_size, a.hero_size)
+        key = '%s|%s|%d' % (time.strftime('%H:%M', now), a.clock_size, a.hero_size)
         if key == self.hero_key and self.pix_time is not None:
             return False
         self.hero_key = key
@@ -344,6 +372,8 @@ class Overlay(Gtk.Window):
 
         self.gap_between = max(12, int(int(a.hero_size) * 0.20))
         self.big_cx, self.big_cy = self.sw / 2.0, self.h * 0.43
+        if self.linger_box is None:              # ukuran tetap, dihitung sekali
+            self.linger_box = self._max_clock_box(int(a.clock_size))
         self.final_cx, self.final_cy = self.clock_target()
         self.scale_end = float(a.clock_size) / max(1.0, float(a.hero_size))
 
@@ -365,6 +395,9 @@ class Overlay(Gtk.Window):
     def refresh_clock(self):
         if self.done:
             return False
+        if self.animating:
+            return True   # jangan rebuild di tengah flip (maju/mundur): posisi
+                          # jam final + skala harus stabil selama animasi jalan
         if self.build_clock():
             self.area.queue_draw_area(*self.hero_area)     # ganti menit → repaint
         return True
@@ -488,6 +521,7 @@ class Overlay(Gtk.Window):
         self.animating = False
         self.reversing = False
         self.done = False
+        self.hint_frozen = None
         try:
             self.area.queue_draw()
         except Exception:
@@ -510,6 +544,11 @@ class Overlay(Gtk.Window):
             cr.scale(z, z)
             cr.translate(-self.sw / 2.0, -self.h / 2.0)
         Gdk.cairo_set_source_pixbuf(cr, self.wall_scaled, 0, 0)
+        if z > 1.0:
+            try:                         # resample cepat khusus bingkai gerak
+                cr.get_source().set_filter(cairo.FILTER_FAST)
+            except Exception:            # (zoom cuma 5%: tak terlihat bedanya)
+                pass
         cr.paint()
         cr.restore()
         if dim > 0:
@@ -587,7 +626,11 @@ class Overlay(Gtk.Window):
 
     def draw_hint(self, cr, fade):
         """Tiga titik menunggu + (kalau teksnya diisi) plat kaca splash."""
-        t = time.time()
+        if self.reversing and self.hint_frozen is not None:
+            t = self.hint_frozen   # bekukan denyut/sweep/titik selama putar balik:
+                                   # elemen waktu jadi ikut "berhenti" alih-alih lompat
+        else:
+            t = time.time()
         breathe = 0.5 + 0.5 * math.sin(t * 1.7)
         x, y, w, h = self.hint_rect
 
@@ -680,24 +723,32 @@ class Overlay(Gtk.Window):
         """
         if self.pix_final is None:
             return
-        x, y, w, h = self.final_rect
+        if not self.linger_box:
+            self.linger_box = self._max_clock_box(int(self.a.clock_size))
+        bw, bh = self.linger_box
+        pfw, pfh = self.pix_final.get_width(), self.pix_final.get_height()
+        # kotak TETAP dipusatkan di titik jam final (posisi tidak goyang per detik)
+        x = int(self.final_cx - bw / 2.0)
+        y = int(self.final_cy - bh / 2.0)
         # jepit ke dalam gambar latar (koordinat OVERLAY, bukan layar)
-        x = max(0, min(x, self.sw - w))
-        y = max(0, min(y, self.h - h))
+        x = max(0, min(x, self.sw - bw))
+        y = max(0, min(y, self.h - bh))
         try:
-            sub = GdkPixbuf.Pixbuf.new_subpixbuf(self.wall_scaled, x, y, w, h)
+            sub = GdkPixbuf.Pixbuf.new_subpixbuf(self.wall_scaled, x, y, bw, bh)
         except Exception as e:
             log(self.a.log, 'linger: potongan wallpaper gagal (%s)' % e)
             return
-        self.linger_rect = (x, y, w, h)
+        self.linger_rect = (x, y, bw, bh)
         self.linger_sub = sub
-        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        self.linger_min = time.strftime('%H:%M')   # sinkron: tick berikutnya diam
+        offx, offy = (bw - pfw) // 2, (bh - pfh) // 2
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, bw, bh)
         cr = cairo.Context(surf)
         Gdk.cairo_set_source_pixbuf(cr, sub, 0, 0)
         cr.paint()
-        Gdk.cairo_set_source_pixbuf(cr, self.pix_final, 0, 0)
+        Gdk.cairo_set_source_pixbuf(cr, self.pix_final, offx, offy)
         cr.paint()
-        pix = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
+        pix = Gdk.pixbuf_get_from_surface(surf, 0, 0, bw, bh)
 
         win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         win.set_decorated(False)
@@ -716,7 +767,7 @@ class Overlay(Gtk.Window):
         self.linger = win
         self.linger_img = img
         self.raise_floaters()
-        log(self.a.log, 'jam menetap di (%d,%d) %dx%d' % (x, y + self.oy, w, h))
+        log(self.a.log, 'jam menetap di (%d,%d) %dx%d' % (x, y + self.oy, bw, bh))
         if self.a.linger_ttl > 0:               # pratinjau: tutup sendiri nanti
             GLib.timeout_add_seconds(self.a.linger_ttl, self.close_linger)
 
@@ -727,13 +778,17 @@ class Overlay(Gtk.Window):
             Gtk.main_quit()       # jalur normal (login / ttl): keluar
 
     def repaint_linger(self, pix):
-        """Gambar ulang jam menetap di atas potongan wallpaper yang sama."""
+        """Gambar ulang jam menetap di atas potongan wallpaper yang sama.
+
+        Jam di-TENGAH kotak tetap; ukuran window tidak pernah berubah.
+        """
         x, y, w, h = self.linger_rect
+        pfw, pfh = pix.get_width(), pix.get_height()
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         cr = cairo.Context(surf)
         Gdk.cairo_set_source_pixbuf(cr, self.linger_sub, 0, 0)
         cr.paint()
-        Gdk.cairo_set_source_pixbuf(cr, pix, 0, 0)
+        Gdk.cairo_set_source_pixbuf(cr, pix, (w - pfw) // 2, (h - pfh) // 2)
         cr.paint()
         newpix = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
         self.linger_img.set_from_pixbuf(newpix)
@@ -746,27 +801,24 @@ class Overlay(Gtk.Window):
         self.show_linger()
 
     def tick_linger(self):
-        """Detik jam menetap tetap hidup: render ulang tiap 1 detik."""
+        """Jam menetap digambar ulang kalau menitnya berganti.
+
+        Tanpa detik, isi jam hanya berubah tiap menit — jadi tick 1-detik ini
+        langsung kembali kalau menitnya sama (hemat CPU). Window menetap
+        berukuran TETAP (lihat `_max_clock_box`), jadi cukup mengganti isinya.
+        """
         try:
             if self.linger is None or not self.done:
                 return True
-            pix, fw, fh = self._time_pixbuf(int(self.a.clock_size))
+            hm = time.strftime('%H:%M')
+            if hm == self.linger_min:
+                return True                      # menit sama: tidak ada yang berubah
+            pix, _fw, _fh = self._time_pixbuf(int(self.a.clock_size))
             if pix is None:
                 return True
-            x, y, w, h = self.linger_rect
-            if fw == w and fh == h:
-                self.pix_final = pix
-                self.repaint_linger(pix)
-            else:
-                self.back_armed = True
-                try:
-                    self.linger.destroy()
-                except Exception:
-                    pass
-                self.linger = None
-                self.back_armed = False
-                self.pix_final = pix
-                self.place_linger()
+            self.pix_final = pix
+            self.linger_min = hm
+            self.repaint_linger(pix)
         except Exception as e:
             log(self.a.log, 'refresh jam menetap gagal: %s' % e)
         return True
@@ -841,42 +893,43 @@ class Overlay(Gtk.Window):
 
     # ------------------------------------------------------- tombol kembali
     # Setelah form tampil, tombol Cancel MILIK binary greeter (handler
-    # cancel_cb di kode C) tidak bisa dikabel-ulang. Penggantinya: lingkaran
-    # kaca "‹" kiri-bawah milik overlay — diklik = flip kembali ke tampilan
+    # cancel_cb di kode C) tidak bisa dikabel-ulang. Penggantinya: PIL kaca
+    # "‹ Kembali" kiri-bawah milik overlay — diklik = flip kembali ke tampilan
     # awal (wallpaper + jam besar), kartu greeter asli tetap di bawahnya.
     @staticmethod
-    def paint_back(cr, size):
-        """Gambar tombol kembali di atas cairo context (murni, bisa diuji)."""
-        cx = cy = size / 2.0
-        r = BACK_R
-        cr.set_source_rgba(0, 0, 0, 0.45)                 # bayangan
-        cr.arc(cx, cy + 2, r, 0, 2 * math.pi)
+    def paint_back(cr, w, h):
+        """Gambar pil kembali di atas cairo context (murni, bisa diuji)."""
+        r = 18.0
+        rounded_path(cr, 1, h - BACK_H + 1, w - 2, BACK_H - 2, r)
+        cr.set_source_rgba(0, 0, 0, 0.45)                   # bayangan
+        cr.save()
+        cr.translate(0, 2)
         cr.fill()
-        cr.set_source_rgba(0.05, 0.06, 0.11, 0.72)        # kaca navy
-        cr.arc(cx, cy, r, 0, 2 * math.pi)
-        cr.fill()
-        cr.set_source_rgba(0.37, 0.64, 0.81, 0.90)        # ring aksen #5fa2ce
+        cr.restore()
+        rounded_path(cr, 1, h - BACK_H + 1, w - 2, BACK_H - 2, r)
+        cr.set_source_rgba(0.05, 0.06, 0.11, 0.78)          # kaca navy
+        cr.fill_preserve()
+        cr.set_source_rgba(0.37, 0.64, 0.81, 0.90)          # ring aksen #5fa2ce
         cr.set_line_width(2.5)
-        cr.arc(cx, cy, r - 2, 0, 2 * math.pi)
         cr.stroke()
-        lay = PangoCairo.create_layout(cr)                # chevron "‹"
-        lay.set_text('‹', -1)
-        lay.set_font_description(Pango.FontDescription('Poppins Bold 34px'))
-        _tw, th = lay.get_pixel_size()
-        cr.move_to(cx - 10, cy - th / 2.0 - 1)
+        lay = PangoCairo.create_layout(cr)                  # "‹ Kembali"
+        lay.set_text('‹ Kembali', -1)
+        lay.set_font_description(Pango.FontDescription('Poppins Bold 22px'))
+        tw, th = lay.get_pixel_size()
+        cr.move_to((w - tw) / 2.0, h - BACK_H + (BACK_H - th) / 2.0 - 1)
         cr.set_source_rgba(1, 1, 1, 0.98)
         PangoCairo.show_layout(cr, lay)
 
     def on_draw_back(self, area, cr):
         alloc = area.get_allocation()
-        self.paint_back(cr, alloc.width)
+        self.paint_back(cr, alloc.width, alloc.height)
         return False
 
     def show_back(self):
-        """Tampilkan tombol kembali setelah form login tampil."""
+        """Tampilkan pil kembali setelah form login tampil."""
         try:
-            size = BACK_R * 2 + 16
-            x, y = 26, self.h - 26 - size
+            w, h = BACK_W, BACK_H
+            x, y = 26, self.h - 26 - h
             win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
             win.set_decorated(False)
             win.set_skip_taskbar_hint(True)
@@ -886,7 +939,7 @@ class Overlay(Gtk.Window):
             win.set_accept_focus(False)
             win.set_app_paintable(True)
             area = Gtk.DrawingArea()
-            area.set_size_request(size, size)
+            area.set_size_request(w, h)
             area.set_can_focus(False)
             area.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
             area.connect('draw', self.on_draw_back)
@@ -894,18 +947,17 @@ class Overlay(Gtk.Window):
             win.add(area)
             win.move(x, y + self.oy)
             win.show_all()
-            self.back_btn = (win, x, y, size)
+            self.back_btn = (win, x, y, w, h)
             self.raise_floaters()
-            log(self.a.log, 'tombol kembali di (%d,%d)' % (x, y + self.oy))
+            log(self.a.log, 'tombol kembali di (%d,%d) %dx%d' % (x, y + self.oy, w, h))
         except Exception as e:
             log(self.a.log, 'tombol kembali gagal: %s' % e)
 
     @_fail_open
     def on_back_press(self, _w, e):
         try:
-            bx = e.x - (BACK_R + 8)
-            by = e.y - (BACK_R + 8)
-            if bx * bx + by * by <= (BACK_R + 8) ** 2:
+            _win, _x, _y, bw, bh = self.back_btn or (None, 0, 0, BACK_W, BACK_H)
+            if 0 <= e.x <= bw and 0 <= e.y <= bh:   # seluruh area pil bisa diklik
                 self.do_back()
                 return True
         except Exception:
@@ -919,6 +971,26 @@ class Overlay(Gtk.Window):
             return True           # abaikan klik ganda selama putar balik
         if not self.done and self.progress <= 0.0:
             return True           # sudah di tampilan awal, tidak ada yang dibalik
+        self.done = False
+        self.reverse_from = max(0.05, self.progress)  # lanjutkan dari posisi kini
+        self.hint_frozen = time.time()   # bekukan fase titik-hint selama putar balik
+        self.reversing = True
+        self.animating = True
+        self.anim_start = time.monotonic()
+        # Cermin finish(): overlay tampil + frame pertama (jam final di p penuh)
+        # DICAT DULU, baru jam-menetap dihancurkan — jadi tidak ada frame kosong
+        # di mana jam hilang (itu yang dulu terlihat "kedip"/beda dari flip masuk).
+        try:
+            if not self.get_visible():
+                self.show_all()          # overlay tadi di-hide, tampilkan lagi
+        except Exception:
+            pass
+        try:
+            self.area.queue_draw()
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+        except Exception:
+            pass
         if self.linger is not None:
             self.back_armed = True
             try:
@@ -933,21 +1005,26 @@ class Overlay(Gtk.Window):
             except Exception:
                 pass
             self.back_btn = None
-        self.done = False
-        self.reversing = True
-        self.animating = True
-        self.anim_start = time.monotonic()
-        try:
-            self.show_all()          # overlay tadi di-hide, tampilkan lagi
+        try:                         # tanpa WM, urutan tumpuk tidak ditegakkan
+            gw = self.get_window()
+            if gw is not None:
+                gw.raise_()
         except Exception:
             pass
         log(self.a.log, 'membatalkan: flip kembali ke tampilan awal')
+        return True
 
     @staticmethod
     def _click_through(win):
-        """Area masuk dikosongkan: klik di atas jam diteruskan ke greeter."""
+        """Area masuk dikosongkan: klik di atas jam diteruskan ke greeter.
+
+        CATATAN API: `Gtk.Widget.input_shape_combine_region()` menerima HANYA
+        region (tanpa offset), berbeda dengan `Gdk.Window.input_shape_combine_region`
+        yang menerima (region, offset_x, offset_y). `win` di sini adalah widget
+        (dari sinyal 'realize'), jadi cukup region saja.
+        """
         try:
-            win.input_shape_combine_region(cairo.Region(), 0, 0)
+            win.input_shape_combine_region(cairo.Region())
         except Exception as e:
             log(getattr(sys, '_anim_log', None), 'input shape dilewati: %s' % e)
 
@@ -960,12 +1037,18 @@ class Overlay(Gtk.Window):
             dur = max(1.0, float(self.a.duration)) / 1000.0
             el = time.monotonic() - self.anim_start
             if self.reversing:
-                # putar balik: kartu turun + jam kembali ke tengah (flip back)
-                self.progress = max(0.0, 1.0 - el / dur)
+                # putar balik DARI POSISI SEKARANG ke 0 (kalau dibatalkan di
+                # tengah kartu naik, tidak melompat dulu ke penuh lalu turun).
+                # Durasi diskalakan ke jarak tempuh agar KECEPATAN (px/detik)
+                # sama dengan flip masuk — jadi gerak balik terasa seperti
+                # kebalikan persis dari animasi masuk.
+                rd = max(0.01, dur * self.reverse_from)
+                self.progress = max(0.0, self.reverse_from * (1.0 - el / rd))
                 if self.progress <= 0.0:
                     self.animating = False
                     self.reversing = False
                     self.done = False
+                    self.hint_frozen = None   # lepas bekukan: titik-hint hidup lagi
                     self.idle_since = time.monotonic()
                     self.area.queue_draw()
                     self.steal_focus()
@@ -977,7 +1060,8 @@ class Overlay(Gtk.Window):
                 if self.progress >= 1.0:
                     self.area.queue_draw()
                     self.finish()
-                    return False
+                    return True    # sumber tick HARUS hidup terus: flip-balik
+                                   # (do_back) butuh on_tick untuk beranimasi
                 self.area.queue_draw()                   # animasi: repaint penuh
         else:
             if not self.done:
@@ -1047,14 +1131,11 @@ class Overlay(Gtk.Window):
         if self.done:
             return False          # animasi selesai: overlay utama sudah tutup
         if self.animating:
-            # Selama kartu naik: Esc/klik-kanan = batal ke tampilan awal
-            # (wallpaper + jam besar). Input lain: biarkan animasi lanjut.
+            # Selama kartu naik: Esc/klik-kanan = batal, animasi di-flip balik
+            # mulus (bukan lompat instan) — sama seperti arah sebaliknya.
+            # Input lain: biarkan animasi lanjut.
             if self._is_cancel(e):
-                self.animating = False
-                self.progress = 0.0
-                self.anim_start = 0.0       # supaya watchdog tidak pikir animasi masih jalan
-                self.area.queue_draw()
-                log(self.a.log, 'dibatalkan: kembali ke tampilan awal')
+                self.do_back()
             return True
         # Idle: input apa pun (termasuk klik kanan) memunculkan form,
         # tapi abaikan 300ms setelah kembali idle (anti-mash tombol).
@@ -1159,6 +1240,7 @@ class Overlay(Gtk.Window):
     @_fail_open
     def reveal(self):
         if not self.animating and self.progress <= 0.0:
+            self.hint_frozen = None   # pastikan tidak ada sisa bekukan
             self.animating = True
             self.anim_start = time.monotonic()
             log(self.a.log, 'reveal: kartu naik + jam terbang ke atas form (durasi %sms)'
@@ -1175,9 +1257,31 @@ class Overlay(Gtk.Window):
         if self.a.stay and self.pix_final is not None:
             self.show_linger()
         self.show_back()
+        # Cermin do_back(): paksa cat 1 frame (jam-menetap + pil tampil) DULU,
+        # baru overlay disembunyikan — tanpa jeda ini ada frame kosong di mana
+        # jam di atas form "kedip" hilang sesaat.
+        try:
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+        except Exception:
+            pass
+        for ms in (150, 400, 800):   # tanpa WM, greeter bisa menimpa floaters
+            try:                     # saat diklik: menangkan rebutan z-order
+                GLib.timeout_add(ms, self._reraise_once)
+            except Exception:
+                pass
         self.restore_focus()     # langsung bisa mengetik password
         self.hide()              # disembunyikan (bukan close) supaya bisa flip balik
         self.start_cancel_watch()
+
+    def _reraise_once(self):
+        """Naikkan lagi jam-menetap + pil kalau form masih tampil (one-shot)."""
+        try:
+            if self.done and (self.linger is not None or self.back_btn is not None):
+                self.raise_floaters()
+        except Exception:
+            pass
+        return False
 
     # ---------------------------------------------------------------- fokus
     def steal_focus(self):
