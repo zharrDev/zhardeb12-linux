@@ -420,15 +420,24 @@ if [ -f "$SRC_DIR/scripts/window-shortcuts.sh" ]; then
     msg "Shortcut window aktif (perlu xfsettingsd reload / re-login bila tidak langsung jalan)."
 fi
 
-# ================= 6a2. Wallpaper switching (shortcut; tanpa tombol) ========
-# Ganti wallpaper urut 1..N loop via shortcut Super+Alt+W (silent).
-# (Overlay klik avatar conky-avatar-click.py sudah dihapus dari proyek.)
-# Bersihkan sisa instalasi lama bila ada agar tidak jalan lagi.
+# ================= 6a2. Mode gelap (shortcut Super+Alt+W) ====================
+# Super+Alt+W BUKAN lagi ganti wallpaper: sekarang memutar nuansa gelap
+# (Dark Mocha -> Dark Navy -> Dark Plum -> Terang) dari wallpaper yang sama.
+# Pergantian wallpaper otomatis (rotate) sudah dihapus dari proyek.
+# (Overlay klik avatar conky-avatar-click.py juga sudah lama dihapus.)
 pkill -f conky-avatar-click.py 2>/dev/null || true
 rm -f "$HOME/.local/bin/conky-avatar-click.py" "$HOME/.config/autostart/conky-avatar-click.desktop" 2>/dev/null || true
-_bind_wall() { xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$1" --create -t string -s "$2" 2>/dev/null || true; }
-_bind_wall "<Super><Alt>w" "$HOME/.local/bin/rotate-wallpaper.sh"
-msg "Shortcut Super+Alt+W -> ganti wallpaper (urut)."
+# bersihkan skrip rotate lama (sudah tidak dipakai)
+rm -f "$HOME/.local/bin/rotate-wallpaper.sh" 2>/dev/null || true
+if [ -f "$SRC_DIR/scripts/dark-mode.sh" ]; then
+    mkdir -p "$HOME/.local/bin/scripts"
+    install -m 755 "$SRC_DIR/scripts/dark-mode.sh" "$HOME/.local/bin/dark-mode.sh"
+    [ -f "$SRC_DIR/scripts/wallpaper-fade.py" ] && \
+        install -m 644 "$SRC_DIR/scripts/wallpaper-fade.py" "$HOME/.local/bin/scripts/wallpaper-fade.py"
+    _bind_wall() { xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$1" --create -t string -s "$2" 2>/dev/null || true; }
+    _bind_wall "<Super><Alt>w" "$HOME/.local/bin/dark-mode.sh"
+    msg "Shortcut Super+Alt+W -> mode gelap (Mocha/Navy/Plum/Terang)."
+fi
 
 # ================= 6b. Lock screen ringan (light-locker) =================
 # light-locker: lock screen ~10MB RAM. Entry user (config/autostart/) menimpa
@@ -531,16 +540,15 @@ else
 fi
 
 # ================= 9b. Penempatan gambar asset =================
-# Wallpaper desktop = gambar landscape saja. Gambar lain: banner/avatar conky
-# & background kitty (diproses update-wallpaper.sh). Skrip rotate tersedia
-# untuk pemakaian manual (TANPA autostart).
-if [ -f "$SRC_DIR/rotate-wallpaper.sh" ]; then
+# Wallpaper desktop = gambar landscape saja. Gambar lain: banner/avatar/kaca
+# conky & background kitty (diproses update-wallpaper.sh).
+# update-wallpaper.sh tetap ada untuk ganti wallpaper manual (TANPA autostart),
+# rotate-wallpaper.sh sudah dihapus — Super+Alt+W kini untuk mode gelap.
+if [ -f "$SRC_DIR/update-wallpaper.sh" ]; then
     mkdir -p "$HOME/.local/bin"
-    install_file "$SRC_DIR/rotate-wallpaper.sh" "$HOME/.local/bin/rotate-wallpaper.sh"
-    chmod +x "$HOME/.local/bin/rotate-wallpaper.sh"
     install_file "$SRC_DIR/update-wallpaper.sh" "$HOME/.local/bin/update-wallpaper.sh"
     chmod +x "$HOME/.local/bin/update-wallpaper.sh"
-    msg "Skrip rotate & update-wallpaper -> ~/.local/bin (manual, tanpa autostart)"
+    msg "update-wallpaper.sh -> ~/.local/bin (ganti wallpaper manual, tanpa autostart)"
 fi
 
 # ================= 9c. Splash terminal (gambar kiri + info kanan) ==========

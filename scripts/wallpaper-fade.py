@@ -10,7 +10,12 @@ Ringan: 1 gambar di-resize sekali (PIL), ramp alpha ditangani compositor
 (picom) — tanpa blend per-frame, tanpa screenshot, tanpa daemon.
 Hidup hanya ~0.5 detik saat switch. Tanpa picom/compositor: fallback instan.
 
-Pakai: wallpaper-fade.py GAMBAR_BARU [DURASI_DETIK]
+Pakai: wallpaper-fade.py GAMBAR_BARU [DURASI_FADE] [TAHAN_DETIK]
+  DURASI_FADE  lama fade-in overlay (default 0.4s)
+  TAHAN_DETIK  tahan overlay sampai detik ini (maks). Bila file
+               /tmp/zhardeb-fade-release muncul, tahanan berhenti lebih awal
+               -> dipakai dark-mode.sh agar kurtain selesai tepat saat warna
+               UI selesai diperbarui (tanpa kedip panel/terminal).
 Exit 0 = sukses; exit != 0 = panggil instant fallback (tanpa fade).
 """
 import os
@@ -21,6 +26,9 @@ import tempfile
 import time
 
 PIDFILE = "/tmp/zhardeb-wallpaper-fade.pid"
+# Bila file ini muncul, overlay "hold" langsung ditutup (dipakai dark-mode.sh
+# supaya kurtain transisi selesai tepat saat warna UI sudah siap).
+RELEASE = "/tmp/zhardeb-fade-release"
 
 
 def kill_previous():
@@ -39,7 +47,7 @@ def kill_previous():
 
 
 def cleanup(tmpfiles):
-    for p in [PIDFILE] + list(tmpfiles):
+    for p in [PIDFILE, RELEASE] + list(tmpfiles):
         try:
             if p and os.path.isfile(p):
                 os.remove(p)
@@ -77,7 +85,7 @@ def main():
 
 def _run(tmpfiles):
     if len(sys.argv) < 2:
-        print("pakai: wallpaper-fade.py GAMBAR_BARU [DURASI_DETIK]",
+        print("pakai: wallpaper-fade.py GAMBAR_BARU [DURASI_FADE] [TAHAN_DETIK]",
               file=sys.stderr)
         return 1
     new_path = sys.argv[1]
@@ -85,12 +93,21 @@ def _run(tmpfiles):
         duration = float(sys.argv[2]) if len(sys.argv) > 2 else 0.4
     except ValueError:
         duration = 0.4
+    try:
+        hold = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0
+    except ValueError:
+        hold = 0.0
     if not os.path.isfile(new_path) or duration <= 0:
         return 1
     if not os.environ.get("DISPLAY"):
         return 1
 
     kill_previous()
+    try:
+        if os.path.exists(RELEASE):
+            os.remove(RELEASE)
+    except Exception:
+        pass
     try:
         from PIL import Image
         import tkinter as tk
@@ -135,15 +152,30 @@ def _run(tmpfiles):
         root.update_idletasks()
         root.update()
 
-        # ramp alpha 0 -> 1 (compositor yang menganimasikan: murah)
-        steps = max(int(duration / 0.025), 2)
+        # ramp alpha 0 -> 1 dengan easing smoothstep (mulai & berhenti halus,
+        # tanpa "patahan" di ujung) — compositor yang menganimasikan: murah
+        steps = max(int(duration / 0.02), 3)
         for i in range(1, steps + 1):
+            t = i / steps
+            t = t * t * (3.0 - 2.0 * t)   # smoothstep
             try:
-                root.attributes("-alpha", i / steps)
+                root.attributes("-alpha", t)
             except Exception:
                 break
             root.update()
             time.sleep(duration / steps)
+
+        # --- tahan overlay (bila diminta) sampai proses warna UI selesai ---
+        # Overlay sudah opaque -> pergantian warna di belakangnya tidak
+        # terlihat, lalu release menutupnya tepat saat semuanya siap.
+        if hold > 0:
+            deadline = time.time() + hold
+            while time.time() < deadline:
+                if os.path.exists(RELEASE):
+                    break
+                root.update()
+                time.sleep(0.05)
+            time.sleep(0.10)
 
         # overlay sudah opaque -> ganti wallpaper di belakangnya (tak terlihat)
         set_wallpaper(new_path)

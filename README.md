@@ -84,24 +84,21 @@ Pasang wallpaper anime baru:
 ./update-wallpaper.sh --random                              # pilih acak dari koleksi
 ```
 > 📐 **Hanya gambar landscape** (rasio ≥ 1.5) yang dipakai sebagai wallpaper
-> desktop — `--random` dan rotasi otomatis melewati gambar portrait/square
-> (gambar itu tetap dipakai untuk banner/avatar conky & login screen).
+> desktop — `--random` melewati gambar portrait/square (gambar itu tetap
+> dipakai untuk banner/avatar conky & login screen).
 
 Skrip akan:
 1. Salin gambar ke `~/Pictures/Wallpapers/Anime/`
 2. Buat versi landscape (blur-fill)
-3. Set sebagai wallpaper desktop **dengan crossfade 0.4s** (`scripts/wallpaper-fade.py`;
+3. Set sebagai wallpaper desktop **dengan crossfade** (`scripts/wallpaper-fade.py`;
    matikan via `./update-wallpaper.sh --no-fade ...` atau `FADE=0`, durasi via `FADE_TIME=0.8`)
 4. **Jalankan pywal** → warna seluruh UI ikut berubah:
    - warna panel, GTK, teks ikon desktop
    - palette terminal baru
-5. Restart panel + kirim warna ke kitty (bila terpasang)
+5. Restart panel + conky, lalu sediakan ulang banner/avatar/**kaca widget**
 
-Rotasi bergilir semua gambar koleksi:
-```bash
-./rotate-wallpaper.sh           # bergilir (urut)
-./rotate-wallpaper.sh --random  # acak
-```
+> 🗑️ Pergantian wallpaper otomatis (rotate) sudah **dihapus** dari proyek.
+> `Super+Alt+W` sekarang untuk **mode gelap** (lihat bagian *Mode Gelap*).
 
 ---
 
@@ -170,6 +167,7 @@ Jendela maximized juga tanpa titlebar (`/general/borderless_maximize = true`)
 | `Super + →` | Geser ke kanan — **mentok kanan → nembus ke workspace kanan** |
 | `Super + ↑` | Geser ke atas — **mentok atas → nembus ke workspace ATAS** (ditempel di bawah) |
 | `Super + ↓` | Geser ke bawah — **mentok bawah → nembus ke workspace BAWAH** (ditempel di atas) |
+| `Super + Alt + W` | **Mode gelap**: Dark Mocha → Dark Navy → Dark Plum → Terang (lihat bagian *Mode Gelap*) |
 
 Diimplementasikan via `scripts/window-shortcuts.sh` (wmctrl) — di-bind
 oleh installer ke `xfce4-keyboard-shortcuts`. Jarak geser bisa diubah:
@@ -262,17 +260,24 @@ Panel di-setup oleh `xfce-anime-setup.sh --apply-panel` (atau
 
 ## 🪟 Widget Info Desktop — Conky “Anime Glass” (kiri-tengah)
 
-Kartu glass elegan di **kiri-tengah layar** berisi:
-- **Banner anime** di bagian atas (crop dari wallpaper aktif — gambar dari
-  `asset/`), menyatu dengan kartu via gradasi gelap
+Widget di **kiri-tengah layar** yang tampil **menyatu dengan wallpaper** —
+tanpa kartu, tanpa border, tanpa sudut kotak:
+- **Latar “kaca”**: potongan wallpa­per tepat di posisi widget
+  (`anime-haze.png`) yang di-blur + digelapkan. Jadi bagian dalam widget
+  terlihat seperti wallpaper yang diburamkan, bukan panel yang ditempel.
+- **Tepi memudar mulus** dengan mask “produk” (profil vertikal × horizontal)
+  yang menyentuh **nol** di keempat sisi — tidak ada garis/sudut yang terlihat.
+- **Banner anime** di atas (crop wallpaper) dengan tepi ber-feather, digeser
+  turun dari tepi atas supaya tidak terpotong lurus.
 - Jam besar (HH:MM + detik), hari, tanggal, bulan, tahun
-- Bar **CPU**, **RAM**, **DISK** bergradasi (dengan ikon Nerd Font)
+- Bar **CPU**, **RAM**, **DISK** bergradasi + divider gradasi aksen
 - Uptime, jumlah proses, suhu CPU, proses teratas
 
 File: `config/conky/anime-glass.conf` + `config/conky/anime-glass.lua`
 (terpasang ke `~/.config/conky/`, autostart via `conky-anime-glass.desktop`).
-Banner: `~/.config/conky/anime-banner.png` (di-generate otomatis oleh
-`update-wallpaper.sh` setiap ganti wallpaper).
+Gambar pendukung di `~/.config/conky/`: `anime-banner.png`, `anime-avatar.png`,
+`anime-haze.png` — semuanya di-generate otomatis oleh `update-wallpaper.sh`
+setiap ganti wallpaper / ganti varian mode gelap.
 
 **Warna otomatis mengikuti wallpaper**: conky membaca `~/.cache/wal/colors`
 (hasil pywal). Ganti wallpaper → warna kartu + banner ikut berubah:
@@ -286,7 +291,9 @@ conky -c ~/.config/conky/anime-glass.conf
 ```
 
 > 💡 Jika ingin widget dipindah: ubah `gap_x` / `gap_y` di
-> `~/.config/conky/anime-glass.conf` lalu restart conky.
+> `~/.config/conky/anime-glass.conf`, lalu jalankan ulang
+> `./update-wallpaper.sh --random` (atau ganti wallpaper) supaya potongan
+> “kaca” (`anime-haze.png`) dibuat di posisi yang baru, lalu restart conky.
 
 ---
 
@@ -304,13 +311,11 @@ sesuai permintaan. Gambar asset lainnya ditempatkan di lokasi yang cocok:
 | `config/wallpapers/login/blue-girl.jpg` | **Background layar login LightDM** (1920×1080, dipakai TAJAM) + sumber tekstur kaca kartu login |
 | `影-removebg-preview.png` | **Avatar user di kartu login LightDM** (bulat 160px, sudah disiapkan di `config/lightdm/avatar/`) |
 
-Banner & avatar di-generate oleh `update-wallpaper.sh` ke
-`~/.config/conky/anime-banner.png` & `anime-avatar.png`.
+Banner, avatar, dan “kaca” widget di-generate oleh `update-wallpaper.sh` ke
+`~/.config/conky/anime-banner.png`, `anime-avatar.png`, dan `anime-haze.png`.
 
-> ⚙️ Rotasi wallpaper **tidak lagi otomatis** (autostart dihapus). Kalau tetap
-> mau bergiliran manual, gunakan `~/.local/bin/rotate-wallpaper.sh` (semua
-> gambar di `~/Pictures/Wallpapers/Anime/`); state disimpan di
-> `~/Pictures/Wallpapers/Anime/.rotate-state`.
+> ⚙️ Rotasi wallpaper **sudah dihapus** dari proyek (skrip & shortcut-nya).
+> `Super+Alt+W` kini dipakai untuk **mode gelap** (lihat bagian berikutnya).
 
 ---
 
@@ -414,6 +419,56 @@ Estimasi beban: ~35–45 MB RAM, 2–4% CPU (tergantung GPU).
 >```
 >Mode `lowmem` pakai `config/picom/picom-lowmem.conf` (blur off, shadow off,
 >corner 5px) — hemat VRAM/GPU memory yang dialokasikan dari system RAM.
+
+---
+
+## 🌙 Mode Gelap — `Super + Alt + W`
+
+Tekan **`Super + Alt + W`** untuk memutar nuansa desktop:
+
+```
+Terang  →  🌙 Dark Mocha  →  🌊 Dark Navy  →  🔮 Dark Plum  →  Terang
+```
+
+Yang berubah **bukan wallpapernya**, melainkan suasana gelap dari gambar yang
+sama: versi gelap dibuat `ImageMagick` (kecerahan diredam + tint khas tiap
+varian), lalu dipakai sebagai sumber **pywal** — sehingga seluruh UI (panel,
+terminal, GTK, conky, outline jendela, notifikasi) otomatis ikut gelap & senada.
+
+| Varian | Nuansa | Tint |
+| --- | --- | --- |
+| 🌙 **Dark Mocha** | hangat, cokelat-kopi | `#4a3a2e` |
+| 🌊 **Dark Navy** | dingin, biru malam | `#12203a` |
+| 🔮 **Dark Plum** | ungu plum | `#2a1740` |
+
+### Transisi yang mulus
+
+Warna UI berganti di balik **satu kurtain crossfade** ber-easing
+(`scripts/wallpaper-fade.py`, default 0.55s + ditahan sampai warna UI selesai
+diperbarui) — jadi perpindahannya terasa seperti satu tarikan napas, bukan
+kedipan panel/terminal. Bila overlay tidak bisa dipakai (tanpa compositor),
+wallpaper langsung dipasang tanpa fade.
+
+### Perilaku & berkas
+
+- Acuan gambar terang disimpan di
+  `~/Pictures/Wallpapers/Anime/.dark/light.jpg`
+- Versi gelap di-cache di folder yang sama (`dark-mocha.jpg`, dst.) — dibuat
+  ulang otomatis hanya bila ganti wallpaper
+- Mode terakhir dicatat di `~/.cache/zhardeb/dark-mode.state`
+- Log langkah pewarnaan: `~/.cache/zhardeb/dark-mode.log`
+- Banner & avatar conky **tetap memakai artwork anime aslinya** (tidak ikut
+  digelapkan) supaya karakter wallpaper-nya tetap terlihat
+- Folder `.dark/` tidak pernah masuk koleksi `--random` / daftar wallpaper
+
+Manual / opsi lanjutan:
+```bash
+~/.local/bin/dark-mode.sh                  # putar varian berikutnya
+FORCE=navy ~/.local/bin/dark-mode.sh       # langsung ke Dark Navy
+FORCE=light ~/.local/bin/dark-mode.sh      # kembali ke terang
+FADE_TIME=1.2 ~/.local/bin/dark-mode.sh    # transisi lebih lambat
+NOTIFY=0 ~/.local/bin/dark-mode.sh         # tanpa notifikasi
+```
 
 ---
 
@@ -725,9 +780,11 @@ systemctl status lightdm
 /home/suo/Documents/zhardeb/
 ├── xfce-anime-setup.sh        # installer utama (1-klik)
 ├── update-wallpaper.sh        # ganti wallpaper + warna UI otomatis (--random)
-├── rotate-wallpaper.sh        # rotasi wallpaper bergilir/acak
 ├── README.md                  # panduan ini
 ├── scripts/
+│   ├── dark-mode.sh           # mode gelap 3 varian (Super+Alt+W) + transisi
+│   ├── wallpaper-fade.py      # crossfade wallpaper (easing + kurtain tahan)
+│   ├── generate-xfwm-theme.sh # tema XFWM frameless + outline warna wallpaper
 │   ├── apply-leyzs-panel.sh   # tata panel ala waybar By-LeyzS
 │   ├── generate-panel-info.sh # tata ulang panel + conky
 │   ├── apply-lightdm-greeter.sh  # deploy layar login (CSS, wallpaper, avatar, animasi)
@@ -744,7 +801,7 @@ systemctl status lightdm
 │   ├── wallpapers/            # koleksi wallpaper terpusat (originals/)
 │   ├── picom/picom.conf       # konfigurasi glassmorphism ringan
 │   ├── conky/anime-glass.conf # widget info desktop (kiri-tengah)
-│   ├── conky/anime-glass.lua # gambar kartu glass (warna dari pywal)
+│   ├── conky/anime-glass.lua # latar kaca + teks/bar (warna dari pywal)
 │   ├── cava/config            # visualizer audio (warna pywal) — ala By-LeyzS
 │   ├── btop/btop.conf         # monitor sistem (tema pywal) — ala By-LeyzS
 │   ├── fastfetch/             # sysinfo + logo anime ASCII — ala By-LeyzS

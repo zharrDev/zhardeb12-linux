@@ -102,7 +102,11 @@ command -v xfconf-query >/dev/null 2>&1 || die "xfconf-query belum terpasang (Xf
 mkdir -p "$WALL_DIR" "$CFG_DIR/gtk-3.0"
 
 # 1) Salin asli (lewati bila sudah berada di folder wallpaper)
-if [ "$(readlink -f "$IMG")" != "$WALL_DIR/$(basename "$IMG")" ]; then
+# KEEP_IN_PLACE=1 -> tidak menyalin sama sekali (dipakai mode gelap supaya
+# versi gelap tidak ikut masuk koleksi wallpaper).
+if [ "${KEEP_IN_PLACE:-0}" = "1" ]; then
+    msg "Mode gambar-siap-pakai: tidak menyalin ke koleksi."
+elif [ "$(readlink -f "$IMG")" != "$WALL_DIR/$(basename "$IMG")" ]; then
     cp -f "$IMG" "$WALL_DIR/$(basename "$IMG")"
     msg "Asli disalin -> $WALL_DIR/$(basename "$IMG")"
 else
@@ -123,9 +127,15 @@ fi
 #    dari source gambar — menghemat ~2s ImageMagick setiap ganti wallpaper
 #    yang sama. Hapus cache lewat: rm -f ~/Pictures/Wallpapers/Anime/anime-*.jpg
 W="${RES%x*}"; H="${RES#*x}"
-LANDSCAPE="$WALL_DIR/anime-${RES}.jpg"
+# LANDSCAPE_FILE=<path> -> pakai gambar yang sudah siap (seukuran layar),
+# tanpa proses blur-fill. Dipakai oleh dark-mode.sh (versi gelap wallpaper
+# sudah dibuat seukuran layar), supaya transisi tetap cepat.
+LANDSCAPE="${LANDSCAPE_FILE:-$WALL_DIR/anime-${RES}.jpg}"
 REGEN_LANDSCAPE=1
-if [ -f "$LANDSCAPE" ] && [ "$IMG" = "$(readlink -f "$IMG")" ]; then
+if [ -n "${LANDSCAPE_FILE:-}" ] && [ -f "$LANDSCAPE_FILE" ]; then
+    REGEN_LANDSCAPE=0
+    msg "Gambar siap-pakai: $LANDSCAPE"
+elif [ -f "$LANDSCAPE" ] && [ "$IMG" = "$(readlink -f "$IMG")" ]; then
     src_hash="$(md5sum "$IMG" 2>/dev/null | cut -d' ' -f1)"
     src_tag="$WALL_DIR/.$(basename "$IMG").${RES}.src"
     cached_hash="$(cat "$src_tag" 2>/dev/null || echo "")"
@@ -148,9 +158,16 @@ fi
 #    Fade jalan default (FADE=1); matikan via --no-fade / FADE=0.
 #    Script fade menampilkan overlay, set xfconf di tengah fade, lalu
 #    menutup sendiri — bila gagal dilewati, fallback ke set instan.
+#    SET_WALL=0 -> langkah ini dilewati (dipakai dark-mode.sh: overlay
+#    transisinya sendiri yang menyetel wallpaper di akhir crossfade).
 FADE_OK=0
-if [ "${FADE:-1}" = "1" ] && [ "$NO_FADE" -eq 0 ] && [ -n "${DISPLAY:-}" ]; then
+if [ "${SET_WALL:-1}" != "1" ]; then
+    msg "Set wallpaper dilewati (transisi dipegang dark-mode.sh)."
+    FADE_OK=2
+fi
+if [ "$FADE_OK" = 0 ] && [ "${FADE:-1}" = "1" ] && [ "$NO_FADE" -eq 0 ] && [ -n "${DISPLAY:-}" ]; then
     FADE_SH="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)/scripts/wallpaper-fade.py"
+    [ -f "$FADE_SH" ] || FADE_SH="$HOME/Documents/zhardeb/scripts/wallpaper-fade.py"
     if [ -f "$FADE_SH" ] && python3 "$FADE_SH" "$LANDSCAPE" "${FADE_TIME:-0.4}" >/dev/null 2>&1; then
         FADE_OK=1
         msg "Wallpaper diterapkan ke desktop (crossfade ${FADE_TIME:-0.4}s)."
@@ -201,6 +218,25 @@ if [ -f "$AVATAR_IMG" ]; then
     convert "$AVATAR_IMG" -resize 56x56^ -gravity Center -extent 56x56 "$CFG_DIR/conky/anime-avatar.png" 2>/dev/null \
         && msg "Avatar conky -> $CFG_DIR/conky/anime-avatar.png (${AVATAR_IMG##*/})" \
         || warn "Gagal membuat avatar conky."
+fi
+
+# 3b2) "Kaca" widget conky: potongan wallpaper TEPAT di posisi widget (posisi
+#      dibaca dari anime-glass.conf), di-blur + digelapkan. Conky hanya
+#      menempelkannya dengan mask elips (anime-glass.lua) sehingga tepinya
+#      memudar mulus — latar widget = wallpaper itu sendiri, tanpa border.
+CONKY_CONF="$CFG_DIR/conky/anime-glass.conf"
+if [ -f "$CONKY_CONF" ] && [ -f "$LANDSCAPE" ]; then
+    cnum() { sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\([0-9-]\{1,\}\).*/\1/p" "$CONKY_CONF" | head -1; }
+    GX=$(cnum gap_x); GY=$(cnum gap_y)
+    CW=$(cnum maximum_width); CH=$(cnum minimum_height)
+    GX=${GX:-32}; GY=${GY:-265}; CW=${CW:-340}; CH=${CH:-550}
+    # crop PERSIS 1:1 dengan layar (tanpa resize) supaya tekstur buram di
+    # dalam widget sejajar dengan wallpaper di belakangnya.
+    convert "$LANDSCAPE" -crop "${CW}x${CH}+${GX}+${GY}" +repage \
+        -blur 0x16 -modulate 66,112 \
+        -quality 92 "$CFG_DIR/conky/anime-haze.png" 2>/dev/null \
+        && msg "Kaca conky   -> $CFG_DIR/conky/anime-haze.png (crop wallpaper + blur)" \
+        || warn "Gagal membuat kaca conky (conky pakai aura warna dominan)."
 fi
 
 # 3c) Logo fastfetch (ala By-LeyzS arch.txt): ASCII art 24-bit color
@@ -487,9 +523,22 @@ PY
             done
             echo "  panel xfce4     : bar transparan ala waybar By-LeyzS (chip via gtk.css)"
             # restart async WITHOUT blocking — panel reload sendiri,
-            # tidak perlu `sleep 1` yang menambah ~1s latency
+            # tidak perlu `sleep 1` yang menambah ~1s latency.
+            # PENTING: tunggu instance lama benar-benar keluar. xfce4-panel
+            # hanya boleh satu instance — kalau yang baru start saat yang lama
+            # masih hidup, ia langsung keluar sendiri => PANEL HILANG.
             pkill -x xfce4-panel 2>/dev/null || true
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+                pgrep -x xfce4-panel >/dev/null 2>&1 || break
+                sleep 0.1
+            done
             setsid xfce4-panel </dev/null >/dev/null 2>&1 &
+            disown 2>/dev/null || true
+            # pengaman: kalau panel tetap tidak muncul, coba hidupkan lagi
+            # di latar belakang (jangan sampai desktop tanpa panel)
+            ( sleep 3
+              pgrep -x xfce4-panel >/dev/null 2>&1 || \
+                  { setsid xfce4-panel </dev/null >/dev/null 2>&1 & } ) >/dev/null 2>&1 &
             disown 2>/dev/null || true
             msg "Panel di-restart untuk memakai warna baru."
         fi
@@ -548,6 +597,13 @@ PY
     else
         warn "Hasil pywal tidak ditemukan di ~/.cache/wal/colors — lewati update warna UI."
     fi
+
+# Wallpaper baru (bukan dari dark-mode.sh) => kembali ke mode terang.
+if [ "${KEEP_IN_PLACE:-0}" != "1" ]; then
+    STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zhardeb"
+    mkdir -p "$STATE_DIR"
+    printf 'light' > "$STATE_DIR/dark-mode.state" 2>/dev/null || true
+fi
 
 echo
 msg "Selesai. Wallpaper baru aktif: $LANDSCAPE"
