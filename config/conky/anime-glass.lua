@@ -67,10 +67,19 @@ local function text(cr, s, x, y, size, weight, col, align, no_shadow)
     if align == 'right' then tx = x - w end
     if align == 'center' then tx = x - w / 2 end
     if not no_shadow then
-        cairo_set_source_rgba(cr, SHADOW[1], SHADOW[2], SHADOW[3], SHADOW[4])
-        cairo_move_to(cr, tx + 1.5, y + 1.5)
-        cairo_show_text(cr, s)
+        -- Outline gelap: gambar teks 8x di sekitar posisi asli
+        -- supaya terbaca di wallpaper terang sekalipun
+        cairo_set_source_rgba(cr, 0, 0, 0, 0.90)
+        local offsets = {
+            {-1.2, 0}, {1.2, 0}, {0, -1.2}, {0, 1.2},
+            {-1.0, -1.0}, {1.0, -1.0}, {-1.0, 1.0}, {1.0, 1.0},
+        }
+        for _, o in ipairs(offsets) do
+            cairo_move_to(cr, tx + o[1], y + o[2])
+            cairo_show_text(cr, s)
+        end
     end
+    -- Teks utama
     cairo_set_source_rgba(cr, col[1], col[2], col[3], col[4])
     cairo_move_to(cr, tx, y)
     cairo_show_text(cr, s)
