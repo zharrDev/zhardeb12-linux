@@ -1,17 +1,17 @@
-# Zhardeb-Glass-Rounded — kaca ala By-LeyzS, warna dari pywal
+# Zhardeb-Glass-Rounded — frame OPAQUE + aksen pywal, rounded & blur dari picom
 # (di-generate ulang oleh scripts/generate-xfwm-theme.sh, jangan edit manual)
 button_offset=6
-button_spacing=2
-show_app_icon=true
+button_spacing=4
+show_app_icon=false
 full_width_title=true
-title_horizontal_offset=6
+title_horizontal_offset=8
 title_vertical_offset_active=1
 title_vertical_offset_inactive=1
 active_text_color=#ffffff
 active_text_shadow_color=#000000
-inactive_text_color=#c4c6c6
+inactive_text_color=#c9cdea
 inactive_text_shadow_color=#000000
-title_shadow_active=true
+title_shadow_active=false
 title_shadow_inactive=false
 shadow_delta_height=0
 shadow_delta_width=0

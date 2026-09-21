@@ -124,15 +124,33 @@ xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 
 ## ✨ Komponen ala By-LeyzS (port ke Xfce)
 
-### Tema XFWM `Zhardeb-Glass-Rounded` (jendela kaca rounded ala Hyprland)
+### Tema XFWM `Zhardeb-Glass-Rounded` (frame gelap + aksen, rounded ala Hyprland)
 
-- **Pojok rounded 10px** (persis `rounding = 10` By-LeyzS), titlebar kaca
-  **72% aktif / 45% non-aktif**, border kaca 55%, **outline aksen pywal**
-  (biru langit) mengelilingi jendela.
+- Titlebar **gelap mengikuti wallpaper** (pywal color0) + **garis aksen 2px** di
+  tepi atas dan **outline aksen 1px** mengelilingi jendela.
+- **Tombol window di kanan titlebar**: minimize `—`, maximize `□`, close `✕`
+  (close merah lembut). Diatur oleh `/general/button_layout = "|HMC"`.
+  Hover tombol memakai warna aksen wallpaper.
+- **Pojok rounded 14px + blur + shadow** ditangani **picom**
+  (`corner-radius-rules` untuk `class_g = 'xfwm4'`), bukan oleh gambar tema.
+
+> **Kenapa tile-nya OPAQUE, bukan kaca transparan?**
+> xfwm4 4.18 di setup ini (compositor = picom) **tidak menggambar frame yang
+> tile-nya punya alpha channel** — hasilnya jendela tampil *tanpa header sama
+> sekali* dan tombol window tidak pernah muncul (gejala "header-nya ilang,
+> cuma ditransparankan"). Sudah diuji: tema stok `Default` (tile opaque)
+> tampil normal; tema ber-alpha (Flat-Remix, versi lama tema ini) selalu
+> hilang — baik dengan picom maupun dengan compositor bawaan xfwm4. Jadi
+> frame dibuat **opaque**, dan kesan kaca diambil alih picom. Terminal &
+> panel tetap kaca karena transparansinya dari sisi aplikasi.
+
 - Warna **otomatis ikut wallpaper** — di-generate dari pywal oleh
   `scripts/generate-xfwm-theme.sh` setiap `update-wallpaper.sh` jalan.
-- Tombol close/min/max **glyph Flat-Remix asli** (merah/oranye/biru).
 - Snapshot tema tersimpan di `config/xfwm4/Zhardeb-Glass-Rounded/`.
+
+Jendela yang **dimaksimalkan tetap punya titlebar + tombol**
+(`/general/borderless_maximize = false`), jadi header tidak pernah hilang —
+termasuk Firefox yang biasanya langsung maximized.
 
 ### Shortcut window (Super/Windows key)
 
@@ -140,7 +158,7 @@ xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 | --- | --- |
 | `Super + Q` | **Close** jendela aktif |
 | `Super + W` | **Minimize** |
-| `Super + A` | **Maximize** toggle |
+| `Super + A` | **Maximize / restore** toggle (semua jendela, termasuk Firefox) |
 | `Super + ←` | Geser jendela ke kiri (80px) — **mentok kiri → nembus ke workspace kiri** |
 | `Super + →` | Geser ke kanan — **mentok kanan → nembus ke workspace kanan** |
 | `Super + ↑` | Geser ke atas — **mentok atas → nembus ke workspace ATAS** (ditempel di bawah) |

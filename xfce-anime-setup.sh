@@ -309,9 +309,14 @@ set_xfconf xsettings /Gtk/FontName     string "Inter 10"
 set_xfconf xsettings /Net/ThemeName    string "$GTK_THEME"
 set_xfconf xfwm4 /general/title_font   string "Inter Bold 9"
 
-# Tema XFWM glass (Zhardeb-Glass-Rounded): titlebar kaca 72%/45%,
-# border kaca 55% + outline aksen pywal, pojok rounded 10px ala By-LeyzS,
-# tombol glyph Flat-Remix (close merah / min oranye / max biru).
+# Tema XFWM (Zhardeb-Glass-Rounded): titlebar GELAP OPAQUE + garis aksen
+# pywal di tepi atas & outline 1px mengelilingi jendela.
+#
+# PENTING: tile-nya sengaja TANPA alpha channel. xfwm4 4.18 di setup ini
+# (compositor = picom) TIDAK menggambar frame yang tile-nya ber-alpha —
+# jendela jadi tampak tanpa header sama sekali. Kesan kaca/rounded diambil
+# alih picom: corner-radius 14px + blur + shadow (lihat config/picom/).
+#
 # Warna di-generate dari pywal oleh scripts/generate-xfwm-theme.sh;
 # repo menyimpan snapshot tema (fallback bila pywal belum jalan).
 GEN_XFWM="$SRC_DIR/scripts/generate-xfwm-theme.sh"
@@ -345,12 +350,17 @@ if command -v plank >/dev/null 2>&1; then
     msg "Plank: tema Transparent (dock polos, tanpa blur strip bawah)."
 fi
 
-# Window button layout: TANPA tombol ("|") — close/min/max dilakukan via
-# shortcut keyboard (Super+Q/W/A, lihat scripts/window-shortcuts.sh).
-# Titlebar tetap ada untuk judul & drag; tampilan bersih ala By-LeyzS/Hyprland.
-set_xfconf xfwm4 /general/button_layout string "|"
+# Window button layout: "|HMC" = semua tombol di sisi KANAN titlebar
+# (H=minimize, M=maximize, C=close — close paling kanan).
+# Semua jendela (termasuk Firefox) memakai tombol ini; Super+Q/W/A tetap ada
+# sebagai alternatif keyboard (scripts/window-shortcuts.sh).
+set_xfconf xfwm4 /general/button_layout string "|HMC"
 # Title alignment: 0 = kiri, 1 = center, 2 = kanan
 set_xfconf xfwm4 /general/title_alignment int 0
+# Jendela maximized TETAP punya titlebar + tombol (borderless_maximize=true
+# membuat header & tombol hilang begitu jendela dimaksimalkan — Firefox
+# default-nya maximized, jadi jangan dimatikan).
+set_xfconf xfwm4 /general/borderless_maximize bool false
 # Matikan tiling default Super+arrow xfwm4 (bentrok dengan shortcut geser)
 for tk in tile_left_key tile_right_key tile_up_key tile_down_key; do
     set_xfconf xfwm4 "/general/$tk" string ""
