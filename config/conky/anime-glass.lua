@@ -142,38 +142,38 @@ function conky_draw_card()
     local XR = W - 36
 
     -- Jam besar + tanggal (langsung di wallpaper, tanpa latar)
-    text(cr, conky_parse('${time %H:%M}'), XL, 80, 72, CAIRO_FONT_WEIGHT_BOLD, CLOCK_COL, 'left')
-    text(cr, conky_parse('${time %S}'), XR, 62, 18, CAIRO_FONT_WEIGHT_BOLD, ACC, 'right')
-    text(cr, conky_parse('${time %A}'), XR, 88, 13, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
-    text(cr, conky_parse('${time %d %B %Y}'), XR, 106, 10.5, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'right')
+    text(cr, conky_parse('${time %H:%M}'), XL, 84, 80, CAIRO_FONT_WEIGHT_BOLD, CLOCK_COL, 'left')
+    text(cr, conky_parse('${time %S}'), XR, 66, 20, CAIRO_FONT_WEIGHT_BOLD, ACC, 'right')
+    text(cr, conky_parse('${time %A}'), XR, 94, 14, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    text(cr, conky_parse('${time %d %B %Y}'), XR, 114, 12, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'right')
 
     -- Divider
-    gline(cr, XL, XR, 124, ACC, 0.40)
+    gline(cr, XL, XR, 134, ACC, 0.40)
 
     -- CPU / RAM / DISK
     local cpu = tonumber(conky_parse('${cpu cpu0}')) or 0
     local ram = tonumber(conky_parse('${memperc}')) or 0
     local dsk = tonumber(conky_parse('${fs_used_perc /}')) or 0
 
-    text(cr, 'CPU', XL, 154, 10.5, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
-    text(cr, string.format('%.0f%%', cpu), XR, 154, 12, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
-    bar(cr, XL, 163, XR - XL, 5, cpu, ACC)
+    text(cr, 'CPU', XL, 166, 12, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
+    text(cr, string.format('%.0f%%', cpu), XR, 166, 13, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    bar(cr, XL, 176, XR - XL, 6, cpu, ACC)
 
-    text(cr, 'RAM', XL, 188, 10.5, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
-    text(cr, string.format('%.0f%%', ram), XR, 188, 12, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
-    bar(cr, XL, 197, XR - XL, 5, ram, ACC)
+    text(cr, 'RAM', XL, 204, 12, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
+    text(cr, string.format('%.0f%%', ram), XR, 204, 13, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    bar(cr, XL, 214, XR - XL, 6, ram, ACC)
 
-    text(cr, 'DISK', XL, 222, 10.5, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
-    text(cr, string.format('%.0f%%', dsk), XR, 222, 12, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
-    bar(cr, XL, 231, XR - XL, 5, dsk, ACC)
+    text(cr, 'DISK', XL, 242, 12, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
+    text(cr, string.format('%.0f%%', dsk), XR, 242, 13, CAIRO_FONT_WEIGHT_BOLD, FGL, 'right')
+    bar(cr, XL, 252, XR - XL, 6, dsk, ACC)
 
     -- Divider
-    gline(cr, XL, XR, 256, ACC, 0.40)
+    gline(cr, XL, XR, 278, ACC, 0.40)
 
     -- Info baris
     local function row(label, value, y)
-        text(cr, label, XL, y, 10, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
-        text(cr, value, XR, y, 11, CAIRO_FONT_WEIGHT_NORMAL, FGL, 'right')
+        text(cr, label, XL, y, 12, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'left')
+        text(cr, value, XR, y, 13, CAIRO_FONT_WEIGHT_NORMAL, FGL, 'right')
     end
 
     local temp = conky_parse("${execpi 60 sensors | awk '/Package id 0:/ {print $4}'}")
@@ -183,14 +183,14 @@ function conky_draw_card()
     local topcpu  = conky_parse('${top cpu 1}')
     if topname == '' or topname == nil then topname = '—' end
 
-    row('UPTIME', conky_parse('${uptime}'), 282)
-    row('PROSES', conky_parse('${running_processes}') .. ' / ' .. conky_parse('${processes}'), 307)
-    row('SUHU', temp, 332)
-    row('TOP', topname .. '  ' .. topcpu .. '%', 357)
+    row('UPTIME', conky_parse('${uptime}'), 306)
+    row('PROSES', conky_parse('${running_processes}') .. ' / ' .. conky_parse('${processes}'), 334)
+    row('SUHU', temp, 362)
+    row('TOP', topname .. '  ' .. topcpu .. '%', 390)
 
     -- Footer
-    text(cr, '✦  A N I M E   G L A S S  ✦', W / 2, 400, 9, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'center')
-    text(cr, conky_parse('${time %Z}'), W / 2, 416, 8, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'center')
+    text(cr, '✦  A N I M E   G L A S S  ✦', W / 2, 434, 10, CAIRO_FONT_WEIGHT_BOLD, ACC2, 'center')
+    text(cr, conky_parse('${time %Z}'), W / 2, 452, 9, CAIRO_FONT_WEIGHT_NORMAL, SUB, 'center')
 
     cairo_destroy(cr)
     cairo_surface_destroy(cs)
