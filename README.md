@@ -167,7 +167,7 @@ Jendela maximized juga tanpa titlebar (`/general/borderless_maximize = true`)
 | `Super + →` | Geser ke kanan — **mentok kanan → nembus ke workspace kanan** |
 | `Super + ↑` | Geser ke atas — **mentok atas → nembus ke workspace ATAS** (ditempel di bawah) |
 | `Super + ↓` | Geser ke bawah — **mentok bawah → nembus ke workspace BAWAH** (ditempel di atas) |
-| `Super + Alt + W` | **Mode gelap**: Dark Mocha → Dark Navy → Dark Plum → Terang (lihat bagian *Mode Gelap*) |
+| `Super + Alt + W` | **Mode gelap**: toggle Terang ↔ Gelap (lihat bagian *Mode Gelap*) |
 
 Diimplementasikan via `scripts/window-shortcuts.sh` (wmctrl) — di-bind
 oleh installer ke `xfce4-keyboard-shortcuts`. Jarak geser bisa diubah:
@@ -424,22 +424,16 @@ Estimasi beban: ~35–45 MB RAM, 2–4% CPU (tergantung GPU).
 
 ## 🌙 Mode Gelap — `Super + Alt + W`
 
-Tekan **`Super + Alt + W`** untuk memutar nuansa desktop:
+Tekan **`Super + Alt + W`** untuk beralih antara mode **Terang** ↔ **Gelap**.
 
 ```
-Terang  →  🌙 Dark Mocha  →  🌊 Dark Navy  →  🔮 Dark Plum  →  Terang
+Terang (sunset)  ←→  🌙 Gelap (nighttime cityscape)
 ```
 
-Yang berubah **bukan wallpapernya**, melainkan suasana gelap dari gambar yang
-sama: versi gelap dibuat `ImageMagick` (kecerahan diredam + tint khas tiap
-varian), lalu dipakai sebagai sumber **pywal** — sehingga seluruh UI (panel,
-terminal, GTK, conky, outline jendela, notifikasi) otomatis ikut gelap & senada.
-
-| Varian | Nuansa | Tint |
-| --- | --- | --- |
-| 🌙 **Dark Mocha** | hangat, cokelat-kopi | `#4a3a2e` |
-| 🌊 **Dark Navy** | dingin, biru malam | `#12203a` |
-| 🔮 **Dark Plum** | ungu plum | `#2a1740` |
+Mode gelap memakai wallpaper `wallpapers/darkmode.png` (kota nighttime yang
+sama, hanya malam hari). Wallpaper itu dipakai sebagai sumber **pywal** —
+sehingga seluruh UI (panel, terminal, GTK, conky, outline jendela, notifikasi)
+otomatis ikut gelap & senada.
 
 ### Transisi yang mulus
 
@@ -453,8 +447,8 @@ wallpaper langsung dipasang tanpa fade.
 
 - Acuan gambar terang disimpan di
   `~/Pictures/Wallpapers/Anime/.dark/light.jpg`
-- Versi gelap di-cache di folder yang sama (`dark-mocha.jpg`, dst.) — dibuat
-  ulang otomatis hanya bila ganti wallpaper
+- Wallpaper gelap (`darkmode.png`) disalin ke
+  `~/Pictures/Wallpapers/Anime/.dark/darkmode-wallpaper.jpg`
 - Mode terakhir dicatat di `~/.cache/zhardeb/dark-mode.state`
 - Log langkah pewarnaan: `~/.cache/zhardeb/dark-mode.log`
 - Banner & avatar conky **tetap memakai artwork anime aslinya** (tidak ikut
@@ -463,9 +457,9 @@ wallpaper langsung dipasang tanpa fade.
 
 Manual / opsi lanjutan:
 ```bash
-~/.local/bin/dark-mode.sh                  # putar varian berikutnya
-FORCE=navy ~/.local/bin/dark-mode.sh       # langsung ke Dark Navy
-FORCE=light ~/.local/bin/dark-mode.sh      # kembali ke terang
+~/.local/bin/dark-mode.sh                  # toggle light ↔ dark
+FORCE=dark ~/.local/bin/dark-mode.sh       # langsung ke mode gelap
+FORCE=light ~/.local/bin/dark-mode.sh      # langsung ke mode terang
 FADE_TIME=1.2 ~/.local/bin/dark-mode.sh    # transisi lebih lambat
 NOTIFY=0 ~/.local/bin/dark-mode.sh         # tanpa notifikasi
 ```

@@ -1,42 +1,30 @@
 #!/usr/bin/env bash
 #
-# dark-mode.sh — nuansa GELAP (3 varian) untuk desktop, dari wallpaper yang
-# sedang dipakai. Dipanggil oleh shortcut:  Super + Alt + W
+# dark-mode.sh — toggle mode gelap/terang dengan wallpaper darkmode.png.
+# Dipanggil oleh shortcut:  Super + Alt + W
 #
-# Urutan putaran:  Terang -> Dark Mocha -> Dark Navy -> Dark Plum -> Terang
+# Urutan putaran:  Terang ↔ Gelap
 #
-# Cara kerjanya (ringkas):
-#   1. Wallpaper terang yang sedang aktif disimpan sebagai acuan.
-#   2. Versi gelapnya dibuat dengan ImageMagick: gambar yang SAMA, diredam
-#      kecerahannya lalu diberi tint khas tiap varian (mocha / navy / plum).
-#      Jadi wallpaper tetap gambar langganan kamu — hanya suasananya malam.
-#   3. Wallpaper gelap itu jadi sumber pywal, sehingga SELURUH UI (panel,
-#      terminal, GTK, conky, outline jendela, notifikasi) otomatis ikut
-#      gelap & senada — semua memang membaca palet pywal.
-#   4. Transisi: overlay crossfade ber-easing (~0.9s) menutup layar
-#      sementara warna UI berganti di belakangnya, jadi perpindahannya
-#      terasa mulus, bukan "kedip".
+# Cara kerjanya:
+#   1. Wallpaper terang disimpan sebagai acuan (snapshot).
+#   2. Mode gelap memakai wallpaper `darkmode.png` (nighttime cityscape)
+#      yang sudah tersedia di repo — tidak perlu ImageMagick generate.
+#   3. Wallpaper itu jadi sumber pywal → seluruh UI (panel, terminal,
+#      GTK, conky, outline, notifikasi) otomatis ikut gelap & senada.
+#   4. Transisi: overlay crossfade ber-easing (0.55s fade-in + ditahan
+#      sampai warna UI selesai diperbarui) → tidak ada kedip panel/terminal.
 #
 # Opsi env:
 #   FADE_TIME=0.8   durasi fade-in overlay (detik, default 0.55)
-#   FADE_HOLD=6     maksimum overlay ditahan (detik, default 3.5); overlay
-#                   ditutup lebih cepat begitu warna UI selesai diperbarui
+#   FADE_HOLD=6     maksimum overlay ditahan (detik, default 3.5)
 #   NOTIFY=0        matikan notifikasi desktop
-#   FORCE=<nama>    lompat langsung ke varian: light|mocha|navy|plum
+#   FORCE=light|dark lompat langsung ke mode tertentu
 #
 set -uo pipefail
 
-# --- varian gelap: nama | label | tint | modulate(bright,sat) | colorize ----
-VARIANTS=(mocha navy plum)
-LABELS=("Dark Mocha" "Dark Navy" "Dark Plum")
-TINTS=('#4a3a2e' '#12203a' '#2a1740')
-MODULATE=('48,60' '45,55' '46,60')
-COLORIZE=(45 50 48)
-EMOJI=("🌙" "🌊" "🔮")
-
 # --- lokasi skrip pendukung -------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
-find_tool() { # find_tool <nama> <kandidat...>
+find_tool() {
     local n="$1"; shift
     for p in "$@"; do [ -f "$p" ] && { printf '%s' "$p"; return 0; }; done
     return 1
@@ -52,10 +40,18 @@ FADE_PY="$(find_tool wallpaper-fade.py \
     "$HOME/Documents/zhardeb/scripts/wallpaper-fade.py" \
     "$HOME/.local/bin/scripts/wallpaper-fade.py" || true)"
 
-# --- lokasi state & gambar -------------------------------------------------
+# --- wallpaper gelap --------------------------------------------------------
+DARK_SRC="$(find_tool darkmode.png \
+    "$HOME/Documents/zhardeb/wallpapers/darkmode.png" \
+    "$HOME/Pictures/Wallpapers/Anime/darkmode.png" || true)"
+if [ -z "$DARK_SRC" ]; then
+    echo "[dark-mode] darkmode.png tidak ditemukan." >&2; exit 1
+fi
+
+# --- lokasi state & gambar --------------------------------------------------
 STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zhardeb"
 STATE_FILE="$STATE_DIR/dark-mode.state"
-DARK_DIR="$HOME/Pictures/Wallpapers/Anime/.dark"   # titik = tidak ikut koleksi
+DARK_DIR="$HOME/Pictures/Wallpapers/Anime/.dark"
 LIGHT_IMG="$DARK_DIR/light.jpg"
 
 mkdir -p "$STATE_DIR" "$DARK_DIR"
@@ -81,7 +77,7 @@ current_wall() {
     return 1
 }
 
-set_wall_instant() { # fallback bila overlay transisi tidak bisa dipakai
+set_wall_instant() {
     local img="$1" key
     for key in $(LC_ALL=C xfconf-query -c xfce4-desktop -l 2>/dev/null \
                  | grep 'last-image' || true); do
@@ -89,30 +85,25 @@ set_wall_instant() { # fallback bila overlay transisi tidak bisa dipakai
     done
 }
 
-# --- tentukan varian berikutnya --------------------------------------------
+# --- tentukan mode berikutnya -----------------------------------------------
 CUR="$(cat "$STATE_FILE" 2>/dev/null || echo light)"
 CUR="${CUR//[[:space:]]/}"
 case "${FORCE:-}" in
-    light) NEXT="light" ;;
-    mocha|navy|plum) NEXT="$FORCE" ;;
+    light|dark) NEXT="$FORCE" ;;
     "")
         case "$CUR" in
-            light|"") NEXT="${VARIANTS[0]}" ;;                    # -> mocha
-            mocha)    NEXT="${VARIANTS[1]}" ;;
-            navy)     NEXT="${VARIANTS[2]}" ;;
-            plum)     NEXT="light" ;;                             # kembali terang
-            *)        NEXT="${VARIANTS[0]}" ;;
+            light|"") NEXT="dark" ;;
+            *)        NEXT="light" ;;
         esac
         ;;
-    *) NEXT="${VARIANTS[0]}" ;;
+    *) NEXT="dark" ;;
 esac
 
-command -v convert >/dev/null 2>&1 || { warn "ImageMagick (convert) belum terpasang."; exit 1; }
-
-# --- 1) acuan "terang" (snapshot saat pertama kali masuk mode gelap) --------
+# --- 1) acuan "terang" (snapshot saat pertama kali masuk mode gelap) ---------
 if [ "$CUR" = "light" ] || [ ! -f "$LIGHT_IMG" ]; then
     SRC="$(current_wall || true)"
-    if [ -n "${SRC:-}" ] && [ -f "$SRC" ] && [ "$(readlink -f "$SRC")" != "$(readlink -f "$LIGHT_IMG" 2>/dev/null)" ]; then
+    if [ -n "${SRC:-}" ] && [ -f "$SRC" ] && \
+       [ "$(readlink -f "$SRC")" != "$(readlink -f "$LIGHT_IMG" 2>/dev/null)" ]; then
         cp -f "$SRC" "$LIGHT_IMG"
         msg "Acuan terang: ${SRC##*/}"
     elif [ ! -f "$LIGHT_IMG" ]; then
@@ -121,32 +112,24 @@ if [ "$CUR" = "light" ] || [ ! -f "$LIGHT_IMG" ]; then
     fi
 fi
 
-# --- 2) gambar untuk mode tujuan -------------------------------------------
+# --- 2) gambar untuk mode tujuan --------------------------------------------
 if [ "$NEXT" = "light" ]; then
     IMG="$LIGHT_IMG"
     LABEL="Terang"
     EMO="☀️"
 else
-    IDX=0
-    for i in "${!VARIANTS[@]}"; do
-        [ "${VARIANTS[$i]}" = "$NEXT" ] && IDX=$i
-    done
-    IMG="$DARK_DIR/dark-$NEXT.jpg"
-    # cache: hanya dibuat ulang bila acuan berubah
-    if [ ! -f "$IMG" ] || [ "$LIGHT_IMG" -nt "$IMG" ]; then
-        msg "Membuat varian ${LABELS[$IDX]}..."
-        convert "$LIGHT_IMG" \
-            -modulate "${MODULATE[$IDX]},100" \
-            -fill "${TINTS[$IDX]}" -colorize "${COLORIZE[$IDX]}" \
-            -quality 92 "$IMG" || { warn "Gagal membuat varian gelap."; exit 1; }
+    IMG="$DARK_DIR/darkmode-wallpaper.jpg"
+    # salin darkmode.png → darkmode-wallpaper.jpg (hanya bila belum ada atau
+    # darkmode.png lebih baru, misal user mengganti file-nya)
+    if [ ! -f "$IMG" ] || [ "$DARK_SRC" -nt "$IMG" ]; then
+        cp -f "$DARK_SRC" "$IMG"
+        msg "Wallpaper gelap: ${DARK_SRC##*/}"
     fi
-    LABEL="${LABELS[$IDX]}"
-    EMO="${EMOJI[$IDX]}"
+    LABEL="Gelap"
+    EMO="🌙"
 fi
 
-# --- 3) transisi: overlay crossfade (jalan di latar belakang) ---------------
-# Overlay naik cepat, lalu DITAHAN sampai warna UI selesai berganti — jadi
-# yang terlihat hanya satu crossfade mulus, bukan kedipan panel/terminal.
+# --- 3) transisi: overlay crossfade -----------------------------------------
 FADE_PID=""
 FT="${FADE_TIME:-0.55}"
 FH="${FADE_HOLD:-3.5}"
@@ -157,13 +140,11 @@ if [ -n "${DISPLAY:-}" ] && [ -n "${FADE_PY:-}" ] && [ -f "$FADE_PY" ]; then
     FADE_PID=$!
 fi
 
-# --- 4) perbarui seluruh warna UI dari wallpaper baru ----------------------
-# SET_WALL=0    -> jangan set wallpaper sendiri (overlay yang melakukannya)
-# LANDSCAPE_FILE-> gambar sudah seukuran layar, tak perlu blur-fill
-# KEEP_IN_PLACE -> jangan masukkan versi gelap ke koleksi wallpaper
-# BANNER/AVATAR -> conky tetap pakai artwork anime aslinya (bukan versi gelap)
+# --- 4) perbarui seluruh warna UI dari wallpaper baru -----------------------
+# SET_WALL=0     → jangan set wallpaper sendiri (overlay yang melakukannya)
+# KEEP_IN_PLACE  → jangan masukkan ke koleksi wallpaper
+# BANNER/AVATAR  → conky tetap pakai artwork anime aslinya
 if ! SET_WALL=0 \
-     LANDSCAPE_FILE="$IMG" \
      KEEP_IN_PLACE=1 \
      BANNER_IMG="$LIGHT_IMG" \
      AVATAR_IMG="$LIGHT_IMG" \
@@ -171,7 +152,7 @@ if ! SET_WALL=0 \
     warn "Gagal menyamakan warna UI (lihat $STATE_DIR/dark-mode.log)."
 fi
 
-# --- 5) lepas kurtain transisi & pastikan wallpaper terpasang --------------
+# --- 5) lepas kurtain transisi & pastikan wallpaper terpasang ---------------
 [ -n "$FADE_PID" ] && touch "$RELEASE_FILE" 2>/dev/null || true
 if [ -n "$FADE_PID" ]; then
     if ! wait "$FADE_PID" 2>/dev/null; then
@@ -183,5 +164,5 @@ fi
 
 printf '%s' "$NEXT" > "$STATE_FILE"
 
-msg "$EMO  $LABEL aktif  (Super+Alt+W untuk lanjut)"
-notify "Tema: $LABEL" "Tekan Super+Alt+W lagi untuk varian berikutnya."
+msg "$EMO  Mode $LABEL aktif  (Super+Alt+W untuk beralih)"
+notify "Mode: $LABEL" "Tekan Super+Alt+W untuk beralih ke mode $([ "$NEXT" = "light" ] && echo gelap || echo terang)."

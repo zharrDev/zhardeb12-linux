@@ -421,8 +421,7 @@ if [ -f "$SRC_DIR/scripts/window-shortcuts.sh" ]; then
 fi
 
 # ================= 6a2. Mode gelap (shortcut Super+Alt+W) ====================
-# Super+Alt+W BUKAN lagi ganti wallpaper: sekarang memutar nuansa gelap
-# (Dark Mocha -> Dark Navy -> Dark Plum -> Terang) dari wallpaper yang sama.
+# Super+Alt+W toggle mode Terang ↔ Gelap (wallpaper darkmode.png).
 # Pergantian wallpaper otomatis (rotate) sudah dihapus dari proyek.
 # (Overlay klik avatar conky-avatar-click.py juga sudah lama dihapus.)
 pkill -f conky-avatar-click.py 2>/dev/null || true
@@ -436,7 +435,7 @@ if [ -f "$SRC_DIR/scripts/dark-mode.sh" ]; then
         install -m 644 "$SRC_DIR/scripts/wallpaper-fade.py" "$HOME/.local/bin/scripts/wallpaper-fade.py"
     _bind_wall() { xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$1" --create -t string -s "$2" 2>/dev/null || true; }
     _bind_wall "<Super><Alt>w" "$HOME/.local/bin/dark-mode.sh"
-    msg "Shortcut Super+Alt+W -> mode gelap (Mocha/Navy/Plum/Terang)."
+    msg "Shortcut Super+Alt+W -> mode gelap (toggle light/dark)."
 fi
 
 # ================= 6b. Lock screen ringan (light-locker) =================
