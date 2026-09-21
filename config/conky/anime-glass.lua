@@ -49,12 +49,12 @@ local function lerp(c1, c2, t)
 end
 
 -- Warna dari wallpaper
-local CLOCK_COL = rgba(C[1], 1.00)  -- jam: warna gelap dominan wallpaper
+local CLOCK_COL = rgba(C[6], 1.00)  -- jam: aksen warm (ikuti wallpaper)
 local ACC       = rgba(C[6], 1.00)  -- aksen (bar, divider)
-local ACC2      = rgba(C[1], 0.65)  -- aksen sekunder (label)
+local ACC2      = rgba(C[2], 0.85)  -- label: warna lebih terang dari palette
 local FGL       = rgba(C[7], 1.00)  -- teks utama (foreground)
-local SUB       = rgba(C[7], 0.70)  -- teks sekunder
-local SHADOW    = {0, 0, 0, 0.55}   -- bayangan teks (cukup untuk kontras)
+local SUB       = rgba(C[7], 0.72)  -- teks sekunder
+local SHADOW    = {0, 0, 0, 0.35}   -- bayangan halus
 local WHITE     = {1, 1, 1, 1}
 
 -- --- helper cairo -----------------------------------------------------------

@@ -226,7 +226,7 @@ fi
 msg "Menempatkan berkas konfigurasi di ~/.config/ ..."
 mkdir -p "$CFG_DIR/picom" "$CFG_DIR/xfce4/terminal" "$CFG_DIR/gtk-3.0" "$CFG_DIR/autostart"
 
-install_file "$SRC_DIR/config/picom/picom.conf"   "$CFG_DIR/picom/picom.conf"
+install_file "$SRC_DIR/config/picom/picom.conf"   "$CFG_DIR/picom.conf"
 install_file "$SRC_DIR/config/gtk-3.0/settings.ini" "$CFG_DIR/gtk-3.0/settings.ini"
 install_file "$SRC_DIR/config/gtk-3.0/gtk.css"      "$CFG_DIR/gtk-3.0/gtk.css"
 
