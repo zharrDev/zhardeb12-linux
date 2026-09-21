@@ -48,13 +48,13 @@ local function lerp(c1, c2, t)
              c1[3] + (c2[3] - c1[3]) * t, 1.0 }
 end
 
--- Warna dari wallpaper
-local CLOCK_COL = rgba(C[6], 1.00)  -- jam: aksen warm (ikuti wallpaper)
+-- Warna: putih bersih untuk semua teks
+local CLOCK_COL = {1, 1, 1, 1}      -- jam: putih
 local ACC       = rgba(C[6], 1.00)  -- aksen (bar, divider)
-local ACC2      = rgba(C[2], 0.85)  -- label: warna lebih terang dari palette
-local FGL       = rgba(C[7], 1.00)  -- teks utama (foreground)
-local SUB       = rgba(C[7], 0.72)  -- teks sekunder
-local SHADOW    = {0, 0, 0, 0.35}   -- bayangan halus
+local ACC2      = {1, 1, 1, 0.80}   -- label: putih agak transparan
+local FGL       = {1, 1, 1, 1}      -- teks utama: putih
+local SUB       = {1, 1, 1, 0.70}   -- teks sekunder: putih redup
+local SHADOW    = {0, 0, 0, 0.60}   -- bayangan gelap untuk kontras
 local WHITE     = {1, 1, 1, 1}
 
 -- --- helper cairo -----------------------------------------------------------
