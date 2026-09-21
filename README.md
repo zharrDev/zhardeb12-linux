@@ -124,15 +124,21 @@ xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
 
 ## ✨ Komponen ala By-LeyzS (port ke Xfce)
 
-### Tema XFWM `Zhardeb-Glass-Rounded` (frame gelap + aksen, rounded ala Hyprland)
+### Tema XFWM `Zhardeb-Glass-Rounded` (frameless + outline aksen, rounded ala Hyprland)
 
-- Titlebar **gelap mengikuti wallpaper** (pywal color0) + **garis aksen 2px** di
-  tepi atas dan **outline aksen 1px** mengelilingi jendela.
-- **Tombol window di kanan titlebar**: minimize `—`, maximize `□`, close `✕`
-  (close merah lembut). Diatur oleh `/general/button_layout = "|HMC"`.
-  Hover tombol memakai warna aksen wallpaper.
+- **Tanpa titlebar/header sama sekali** — isi jendela mentok ke atas, tidak ada
+  strip kosong atau area transparan di atas jendela.
+- Yang tersisa hanya **outline aksen tipis 2px** mengelilingi jendela (warna
+  dari pywal color5) — jadi tiap jendela terlihat seperti kartu kaca berbingkai.
 - **Pojok rounded 14px + blur + shadow** ditangani **picom**
   (`corner-radius-rules` untuk `class_g = 'xfwm4'`), bukan oleh gambar tema.
+- Kontrol jendela lewat keyboard (karena tak ada tombol di titlebar):
+  `Super+Q` close, `Super+W` minimize, `Super+A` maximize/restore.
+  **Memindah jendela**: `Alt` + drag. **Resize**: `Alt` + klik-kanan lalu
+  geser (kotak karet, `/general/box_resize = true`).
+- Balik ke gaya ber-titlebar + tombol: jalankan generator dengan ukuran lain,
+  mis. `TB_H=28 B_W=6 bash scripts/generate-xfwm-theme.sh` lalu
+  `xfconf-query -c xfwm4 -p /general/button_layout -s "|HMC"`.
 
 > **Kenapa tile-nya OPAQUE, bukan kaca transparan?**
 > xfwm4 4.18 di setup ini (compositor = picom) **tidak menggambar frame yang
@@ -148,9 +154,8 @@ xfconf-query -c xsettings -p /Gtk/IconThemeName -s "Papirus-Dark"
   `scripts/generate-xfwm-theme.sh` setiap `update-wallpaper.sh` jalan.
 - Snapshot tema tersimpan di `config/xfwm4/Zhardeb-Glass-Rounded/`.
 
-Jendela yang **dimaksimalkan tetap punya titlebar + tombol**
-(`/general/borderless_maximize = false`), jadi header tidak pernah hilang —
-termasuk Firefox yang biasanya langsung maximized.
+Jendela maximized juga tanpa titlebar (`/general/borderless_maximize = true`)
+— konsisten dengan gaya frameless, dan jendela tetap membulat lewat picom.
 
 ### Shortcut window (Super/Windows key)
 
@@ -159,6 +164,8 @@ termasuk Firefox yang biasanya langsung maximized.
 | `Super + Q` | **Close** jendela aktif |
 | `Super + W` | **Minimize** |
 | `Super + A` | **Maximize / restore** toggle (semua jendela, termasuk Firefox) |
+| `Alt` + drag | **Pindah** jendela (karena titlebar-nya frameless) |
+| `Alt` + klik-kanan + drag | **Resize** jendela (kotak karet) |
 | `Super + ←` | Geser jendela ke kiri (80px) — **mentok kiri → nembus ke workspace kiri** |
 | `Super + →` | Geser ke kanan — **mentok kanan → nembus ke workspace kanan** |
 | `Super + ↑` | Geser ke atas — **mentok atas → nembus ke workspace ATAS** (ditempel di bawah) |

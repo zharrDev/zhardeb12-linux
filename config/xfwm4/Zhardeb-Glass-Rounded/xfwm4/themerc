@@ -1,4 +1,4 @@
-# Zhardeb-Glass-Rounded — frame OPAQUE + aksen pywal, rounded & blur dari picom
+# Zhardeb-Glass-Rounded — frame OPAQUE + outline aksen, rounded & blur dari picom
 # (di-generate ulang oleh scripts/generate-xfwm-theme.sh, jangan edit manual)
 button_offset=6
 button_spacing=4

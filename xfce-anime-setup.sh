@@ -309,13 +309,15 @@ set_xfconf xsettings /Gtk/FontName     string "Inter 10"
 set_xfconf xsettings /Net/ThemeName    string "$GTK_THEME"
 set_xfconf xfwm4 /general/title_font   string "Inter Bold 9"
 
-# Tema XFWM (Zhardeb-Glass-Rounded): titlebar GELAP OPAQUE + garis aksen
-# pywal di tepi atas & outline 1px mengelilingi jendela.
+# Tema XFWM (Zhardeb-Glass-Rounded): FRAMELESS — tanpa titlebar/header,
+# cuma outline aksen tipis 2px mengelilingi jendela (warna dari pywal).
+# Isi jendela mentok ke atas; kontrol jendela lewat keyboard (Super+Q/W/A
+# dan panah geser) atau Alt+drag untuk memindah.
 #
 # PENTING: tile-nya sengaja TANPA alpha channel. xfwm4 4.18 di setup ini
 # (compositor = picom) TIDAK menggambar frame yang tile-nya ber-alpha —
-# jendela jadi tampak tanpa header sama sekali. Kesan kaca/rounded diambil
-# alih picom: corner-radius 14px + blur + shadow (lihat config/picom/).
+# jendela jadi tanpa dekorasi sama sekali. Kesan kaca/rounded diambil alih
+# picom: corner-radius 14px + blur + shadow (lihat config/picom/).
 #
 # Warna di-generate dari pywal oleh scripts/generate-xfwm-theme.sh;
 # repo menyimpan snapshot tema (fallback bila pywal belum jalan).
@@ -350,17 +352,17 @@ if command -v plank >/dev/null 2>&1; then
     msg "Plank: tema Transparent (dock polos, tanpa blur strip bawah)."
 fi
 
-# Window button layout: "|HMC" = semua tombol di sisi KANAN titlebar
-# (H=minimize, M=maximize, C=close — close paling kanan).
-# Semua jendela (termasuk Firefox) memakai tombol ini; Super+Q/W/A tetap ada
-# sebagai alternatif keyboard (scripts/window-shortcuts.sh).
-set_xfconf xfwm4 /general/button_layout string "|HMC"
-# Title alignment: 0 = kiri, 1 = center, 2 = kanan
+# Titlebar frameless: tidak ada tempat untuk tombol window ("|" = kosong).
+# Kontrol lewat keyboard: Super+Q close, Super+W minimize, Super+A maximize
+# (scripts/window-shortcuts.sh) — dan Alt+drag untuk memindah jendela.
+set_xfconf xfwm4 /general/button_layout string "|"
+# Title alignment: 0 = kiri (tak terlihat karena header frameless)
 set_xfconf xfwm4 /general/title_alignment int 0
-# Jendela maximized TETAP punya titlebar + tombol (borderless_maximize=true
-# membuat header & tombol hilang begitu jendela dimaksimalkan — Firefox
-# default-nya maximized, jadi jangan dimatikan).
-set_xfconf xfwm4 /general/borderless_maximize bool false
+# Header frameless: jendela maximized juga tanpa titlebar (konsisten).
+set_xfconf xfwm4 /general/borderless_maximize bool true
+# Outline cuma 2px, jadi resize tepi susah digenggam: nyalakan box resize
+# (Alt+klik-kanan lalu geser = resize dengan kotak karet).
+set_xfconf xfwm4 /general/box_resize bool true
 # Matikan tiling default Super+arrow xfwm4 (bentrok dengan shortcut geser)
 for tk in tile_left_key tile_right_key tile_up_key tile_down_key; do
     set_xfconf xfwm4 "/general/$tk" string ""
